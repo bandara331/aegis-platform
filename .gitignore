@@ -1,0 +1,17 @@
+# Next.js / Node
+node_modules
+.next
+out
+.env
+.env*.local
+*.tsbuildinfo
+.DS_Store
+
+# .NET / C# Backend
+**/bin/
+**/obj/
+**/logs/
+**/App_Data/
+*.user
+*.suo
+appsettings.Local.json

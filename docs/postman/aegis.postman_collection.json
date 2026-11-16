@@ -1,0 +1,157 @@
+{
+  "info": {
+    "_postman_id": "88a1e720-4821-4c9a-9f3c-4a7e21b08d65",
+    "name": "AEGIS Humanitarian Crisis Platform API (SE205.3)",
+    "description": "End-to-end API collection covering JWT Authentication, Idempotent Request Creation, AI Governance Decisions (Two-Person Rule), Concurrency-Safe Shelter/Resource Allocation, Shortage Simulation Strategies, and Cryptographic Audit Chain Verification.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "recommendationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth - Login as Emergency Coordinator",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+              "var json = pm.response.json();",
+              "pm.collectionVariables.set('accessToken', json.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"coordinator@aegis.local\",\n  \"password\": \"Password123!\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+      }
+    },
+    {
+      "name": "2. Requests - Create Emergency Request (Idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "demo-idem-key-001" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"crisisId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"category\": \"Medical\",\n  \"description\": \"Insulin needed for elderly mobility-limited household in Kalutara\",\n  \"language\": \"en\",\n  \"area\": \"Kalutara\",\n  \"latitude\": 6.5850,\n  \"longitude\": 79.9620,\n  \"selfReportedUrgency\": 5,\n  \"peopleCount\": 2,\n  \"consentGiven\": true\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/requests", "host": ["{{baseUrl}}"], "path": ["requests"] }
+      }
+    },
+    {
+      "name": "3. Cases - Get Priority Queue (Frontend Contract)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/cases?sort=ai_priority",
+          "host": ["{{baseUrl}}"],
+          "path": ["cases"],
+          "query": [{ "key": "sort", "value": "ai_priority" }]
+        }
+      }
+    },
+    {
+      "name": "4. AI Governance - Record Human Decision (Two-Person Rule)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"Approve\",\n  \"justification\": \"Verified cold-chain insulin availability at Depot B.\",\n  \"secondApproverId\": \"a686dd61-b556-48ad-90bf-6d5e7726220d\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ai/recommendations/{{recommendationId}}/decision",
+          "host": ["{{baseUrl}}"],
+          "path": ["ai", "recommendations", "{{recommendationId}}", "decision"]
+        }
+      }
+    },
+    {
+      "name": "5. Shelters - Allocate Capacity (Concurrency-Safe)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requestId\": \"e4821000-0000-0000-0000-000000004821\",\n  \"personsCount\": 2\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/shelters/c1111111-1111-1111-1111-111111111111/allocate",
+          "host": ["{{baseUrl}}"],
+          "path": ["shelters", "c1111111-1111-1111-1111-111111111111", "allocate"]
+        }
+      }
+    },
+    {
+      "name": "6. Scenario Lab - Simulate Shortage (Strategy Pattern)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"resourceCategory\": \"Water\",\n  \"availableStock\": 25,\n  \"strategy\": \"MaxUrgency\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/scenarios/shortage",
+          "host": ["{{baseUrl}}"],
+          "path": ["scenarios", "shortage"]
+        }
+      }
+    },
+    {
+      "name": "7. Audit - Verify Cryptographic Hash Chain",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["audit", "verify"]
+        }
+      }
+    },
+    {
+      "name": "8. Resilience - Simulate AI Outage (Degraded Mode -> ManualTriage)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceName\": \"AiEngine\",\n  \"status\": \"Degraded\",\n  \"details\": \"Simulated AI scoring outage for coursework demonstration\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/simulate-outage",
+          "host": ["{{baseUrl}}"],
+          "path": ["admin", "simulate-outage"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+:root {
+  /* Modern Bento Surface & Typography Tokens */
+  --bg-canvas: #F3F4F6;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F8F9FB;
+  --border-card: #E3E6EB;
+  --border-strong: #CBD1DC;
+
+  --ink: #0A0C10;
+  --muted: #565F6C;
+
+  /* Semantic Palette */
+  --accent: #2B50F0;
+  --accent-hover: #1F3FD6;
+  --accent-soft: rgba(43, 80, 240, 0.09);
+
+  /* Violet strictly reserved for AI output */
+  --ai-violet: #7C3AED;
+  --ai-violet-soft: rgba(124, 58, 237, 0.10);
+
+  --critical: #D13438;
+  --critical-soft: rgba(209, 52, 56, 0.10);
+
+  --warning: #F5A524;
+  --warning-soft: rgba(245, 165, 36, 0.14);
+
+  --success: #0E7C3A;
+  --success-soft: rgba(14, 124, 58, 0.10);
+
+  /* Bento Radii & Elevation */
+  --radius-card: 26px;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 2px 10px rgba(10, 12, 16, 0.03);
+  --shadow-hover: 0 12px 28px rgba(10, 12, 16, 0.07);
+
+  /* Accessibility Touch Target Minimum */
+  --touch-min: 44px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+code, pre, .mono {
+  font-family: var(--font-mono), monospace;
+}
+
+/* Accessible Focus Ring (>= 4.5:1 contrast) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Subtle Animations */
+@keyframes bento-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bento-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes bento-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.bento-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  animation: bento-fade-up 0.35s ease-out both;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.bento-card.interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-strong);
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: bento-pulse 2s ease-in-out infinite;
+}
+
+/* Form Controls */
+.bento-input,
+.bento-select,
+.bento-textarea {
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.bento-input:hover,
+.bento-select:hover,
+.bento-textarea:hover {
+  border-color: var(--border-strong);
+}
+
+.bento-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+
+/* Bento Grid Helpers */
+.bento-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.bento-grid.cols-4 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.bento-grid.cols-3 {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.bento-grid.cols-2 {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+/* Admin Layout: Slim Icon Rail + Top Bar + Main Content */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+}
+
+.admin-rail {
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+  gap: 6px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.admin-rail-link {
+  width: 56px;
+  min-height: 52px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: center;
+  padding: 4px;
+}
+
+.admin-rail-link:hover {
+  background: var(--bg-subtle);
+  color: var(--ink);
+}
+
+.admin-rail-link.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.admin-topbar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  min-height: 64px;
+  padding: 10px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-main {
+  padding: 28px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Citizen Layout: Mobile-First + Bottom Tab Bar */
+.citizen-shell {
+  min-height: 100vh;
+  padding-bottom: 84px;
+  background: var(--bg-canvas);
+}
+
+.citizen-container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.citizen-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 68px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 40;
+  padding: 0 8px;
+}
+
+.citizen-tab {
+  min-height: var(--touch-min);
+  min-width: 64px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.citizen-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 768px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-rail {
+    flex-direction: row;
+    height: auto;
+    position: static;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-card);
+    overflow-x: auto;
+  }
+  .admin-main {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
