@@ -129,7 +129,9 @@ public record CreateVolunteerDto(
     string Skills,
     string Availability,
     double Latitude,
-    double Longitude
+    double Longitude,
+    string? District = null,
+    string? Nic = null
 );
 
 public record MatchVolunteersRequestDto(
@@ -176,8 +178,14 @@ public record DonationResponseDto(
     string Currency,
     bool Flagged,
     string? FlagReason,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? ReviewStatus = null,
+    string? ReviewNotes = null
 );
+
+public record UpdateShelterOccupancyDto(int Occupancy, string? Notes = null);
+public record ReviewDonationDto(bool Approve, string? Notes = null);
+public record CreateAlertDto(string Title, string Message, string District, string Severity, string Language = "en", int? ExpiresInHours = 24);
 
 // Evidence Upload
 public record EvidenceResponseDto(

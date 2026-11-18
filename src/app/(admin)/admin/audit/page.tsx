@@ -1,8 +1,7 @@
-import { cookies } from "next/headers";
-import { Card, DataTable, ErrorState, PageHeader, Tag } from "@/components/ui";
-import { getDictionary } from "@/lib/i18n/dictionary";
+"use client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
+import { useCallback, useEffect, useState } from "react";
+import { Button, Card, EmptyState, ErrorState, PageHeader, Tag, Toast } from "@/components/ui";
 
 interface AuditRow {
   sequenceNumber: number;
@@ -10,7 +9,9 @@ interface AuditRow {
   entityId: string;
   action: string;
   actorRole: string;
+  actorId?: string;
   currentHash: string;
+  previousHash?: string;
   timestampUtc: string;
 }
 
@@ -21,88 +22,102 @@ interface AuditVerifyResult {
   totalEntriesVerified: number;
 }
 
-export default async function AdminAuditPage() {
-  const dict = getDictionary("en");
-  const cookieStore = await cookies();
-  const token = cookieStore.get("aegis_token")?.value;
+export default function AdminAuditPage() {
+  const [entries, setEntries] = useState<AuditRow[]>([]);
+  const [verify, setVerify] = useState<AuditVerifyResult | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  let entries: AuditRow[] = [];
-  let verify: AuditVerifyResult | null = null;
-  let error: string | null = null;
-
-  if (token) {
+  const loadAudit = useCallback(async () => {
     try {
-      const [listRes, verifyRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/audit?page=1&pageSize=25`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }),
-        fetch(`${API_BASE_URL}/audit/verify`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }),
-      ]);
-
-      if (listRes.ok) {
-        const pageData = await listRes.json();
-        entries = Array.isArray(pageData.items) ? pageData.items : [];
-      } else {
-        error = `Audit API returned HTTP ${listRes.status}`;
+      const res = await fetch("/api/ops/audit?page=1&pageSize=30", { cache: "no-store" });
+      if (!res.ok) {
+        setError(`Audit API returned HTTP ${res.status}.`);
+        return;
       }
+      const data = await res.json();
+      setEntries(Array.isArray(data.items) ? data.items : []);
+      setError(null);
+    } catch {
+      setError("Unable to reach audit endpoint.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      if (verifyRes.ok) {
-        verify = (await verifyRes.json()) as AuditVerifyResult;
+  useEffect(() => {
+    void loadAudit();
+  }, [loadAudit]);
+
+  async function handleVerifyChain() {
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/ops/audit/verify", { cache: "no-store" });
+      if (res.ok) {
+        setVerify((await res.json()) as AuditVerifyResult);
+      } else {
+        setError(`Verification returned HTTP ${res.status}.`);
       }
     } catch {
-      error = "Unable to connect to AEGIS audit endpoint.";
+      setError("Failed to verify hash chain.");
+    } finally {
+      setVerifying(false);
     }
   }
 
   return (
     <div style={{ display: "grid", gap: "20px" }}>
-      <PageHeader
-        eyebrow="CRYPTOGRAPHIC TAMPER-EVIDENT LEDGER"
-        eyebrowTone="success"
-        title="Audit Trail & Hash Chain Verification"
-        subtitle="Append-only SHA-256 hash chain guarded by PostgreSQL BEFORE UPDATE / DELETE / TRUNCATE triggers."
-      />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+        <PageHeader
+          eyebrow="CRYPTOGRAPHIC TAMPER-EVIDENT LEDGER"
+          eyebrowTone="success"
+          title="Audit Trail & Hash Chain"
+          subtitle="Append-only SHA-256 hash chain guarded by PostgreSQL BEFORE UPDATE / DELETE / TRUNCATE triggers."
+        />
+        <Button type="button" onClick={handleVerifyChain} disabled={verifying}>
+          {verifying ? "Verifying chain…" : "Verify chain"}
+        </Button>
+      </div>
 
       {verify && (
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-            <div>
-              <strong>Chain Integrity Check (`GET /api/v1/audit/verify`)</strong>
-              <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
-                Verified {verify.totalEntriesVerified} chained entries from genesis state.
-              </div>
-            </div>
-            <Tag tone={verify.isValid ? "success" : "critical"}>
-              {verify.isValid ? "CHAIN VALID · UNBROKEN" : `BROKEN AT #${verify.brokenSequenceNumber}`}
-            </Tag>
-          </div>
-        </Card>
+        <Toast tone={verify.isValid ? "success" : "critical"}>
+          {verify.isValid
+            ? `CHAIN VALID · UNBROKEN — Verified ${verify.totalEntriesVerified} chained entries from genesis.`
+            : `CHAIN BROKEN AT SEQ #${verify.brokenSequenceNumber}: ${verify.errorMessage || "Hash mismatch"}`}
+        </Toast>
       )}
 
       {error ? (
         <ErrorState message={error} />
+      ) : loading ? (
+        <Card><div className="muted">Loading audit timeline…</div></Card>
+      ) : entries.length === 0 ? (
+        <EmptyState title="No audit entries recorded" description="Actions across requests, decisions, shelters, and users will appear here." />
       ) : (
-        <DataTable<AuditRow>
-          rows={entries}
-          rowKey={(r) => String(r.sequenceNumber)}
-          emptyTitle="No audit entries recorded"
-          emptyDescription={dict.empty.noAudit}
-          columns={[
-            { key: "seq", header: "Seq #", render: (r) => <span className="mono">#{r.sequenceNumber}</span> },
-            { key: "entity", header: "Entity", render: (r) => `${r.entityName} (${r.entityId.slice(0, 8)})` },
-            { key: "action", header: "Action", render: (r) => <Tag tone="accent">{r.action}</Tag> },
-            { key: "role", header: "Actor Role", render: (r) => r.actorRole },
-            {
-              key: "hash",
-              header: "SHA-256 Digest",
-              render: (r) => <span className="mono" style={{ fontSize: "12px" }}>{r.currentHash.slice(0, 16)}…</span>,
-            },
-          ]}
-        />
+        <Card>
+          <div className="tl">
+            {entries.map((r) => (
+              <div key={r.sequenceNumber} className="tl-item">
+                <span className="tl-dot" style={{ background: "var(--teal)" }} />
+                <div style={{ width: "100%" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <div>
+                      <b className="mono">#{r.sequenceNumber}</b> · <Tag tone="accent">{r.action}</Tag>{" "}
+                      <span>{r.entityName} ({r.entityId.slice(0, 8)})</span>
+                    </div>
+                    <span className="mono muted" style={{ fontSize: 11.5 }}>
+                      {new Date(r.timestampUtc).toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="mono muted" style={{ fontSize: 11.5 }}>
+                    Actor: {r.actorRole} · SHA-256: {r.currentHash.slice(0, 20)}…
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );

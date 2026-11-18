@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { getPublicStats, getRequests, type RequestDetail } from "@/lib/api";
+import { Icon, type IconName } from "@/components/icons/Icon";
 import { MainDashboardHub } from "./MainDashboardHub";
 
-const STEPS = ["Ask", "Verify", "Decide", "Dispatch", "Record"];
+const PIPELINE: { num: string; title: string; detail: string; icon: IconName }[] = [
+  { num: "01", title: "Ask", detail: "Share family needs & GPS", icon: "pin" },
+  { num: "02", title: "Verify", detail: "NIC vault & duplicate check", icon: "shield" },
+  { num: "03", title: "Decide", detail: "AI ranks, human approves", icon: "spark" },
+  { num: "04", title: "Dispatch", detail: "Supplies & shelter routed", icon: "box" },
+  { num: "05", title: "Record", detail: "Sealed in SHA-256 chain", icon: "check" },
+];
 const ROLES = ["Citizens", "Coordinators", "Case managers", "Logistics", "Shelters", "Volunteers", "Donors", "Partners"];
 
 export default async function LandingPage() {
@@ -77,12 +84,14 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <MainDashboardHub
-        isLoggedIn={isLoggedIn}
-        isCitizen={isCitizen}
-        isStaff={isStaff}
-        citizenRequests={citizenRequests}
-      />
+      {isLoggedIn && (
+        <MainDashboardHub
+          isLoggedIn={isLoggedIn}
+          isCitizen={isCitizen}
+          isStaff={isStaff}
+          citizenRequests={citizenRequests}
+        />
+      )}
 
       {live.length > 0 && (
         <section
@@ -100,105 +109,154 @@ export default async function LandingPage() {
       )}
 
       <section className="lp-bento" aria-label="Product overview">
-        {/* Real Sri Lanka OpenStreetMap tile */}
-        <div className="lp-t lp-a" style={{ padding: 0, overflow: "hidden", position: "relative" }}>
-          <iframe
-            title="Sri Lanka operations map"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=79.52,5.90,81.90,9.85&layer=mapnik"
-            style={{ width: "100%", height: "100%", minHeight: "360px", border: 0, display: "block" }}
-            loading="lazy"
-          />
-          <div
-            className="lp-live"
-            style={{
-              background: "rgba(12, 18, 48, 0.86)",
-              backdropFilter: "blur(8px)",
-              color: "#fff",
-              border: "1px solid rgba(255,255,255,0.16)",
-            }}
-          >
-            <i />
-            Sri Lanka · {stats ? `${stats.openRequestsCount} open requests · ${stats.openSheltersCount} shelters` : "Live Operations Map"}
+        <div className="lp-t lp-d lp-flex-tile">
+          <div className="lp-card-top">
+            <span className="lp-lbl mono" style={{ margin: 0, color: "rgba(255,255,255,0.86)" }}>01 · Rapid intake</span>
+            <Link href="/register" className="lp-arw-inline" aria-label="Request in 3 steps">→</Link>
+          </div>
+          <div>
+            <div className="lp-big">3</div>
+            <div className="lp-tl">What you need, where you are, send. Confirmation arrives by email.</div>
+          </div>
+          <div className="lp-mini-pills">
+            <span>1. Need</span>
+            <span>2. GPS Pin</span>
+            <span>3. Send</span>
           </div>
         </div>
 
-        {/* AI tile (violet = AI only) */}
-        <div className="lp-t lp-b">
-          <span className="ai-chip mono">AI SUGGESTION</span>
-          <div className="lp-rr">
-            <svg width="88" height="88" viewBox="0 0 92 92" aria-hidden="true">
-              <circle cx="46" cy="46" r="38" fill="none" stroke="#fff" strokeWidth="9" />
-              <circle
-                className="ai-ring"
-                style={{ ["--c" as string]: 239, strokeDashoffset: 80 }}
-                cx="46" cy="46" r="38" fill="none" stroke="#7C3AED" strokeWidth="9" strokeLinecap="round" transform="rotate(-90 46 46)"
-              />
-            </svg>
-            <div style={{ fontSize: 19, lineHeight: 1.25, fontWeight: 600, letterSpacing: "-.02em" }}>
-              AI explains its reasoning. A person approves.
+        <div className="lp-t lp-e lp-flex-tile">
+          <div className="lp-card-top">
+            <span className="lp-lbl mono" style={{ margin: 0, color: "#153024" }}>02 · Island-wide grid</span>
+            <span className="lp-dot-live" aria-hidden="true" />
+          </div>
+          <div>
+            <div className="lp-big lp-cnt" style={{ ["--n" as string]: 25 }} />
+            <div className="lp-tl">districts connected across Sri Lanka</div>
+          </div>
+          <div className="lp-mini-pills dark-ink">
+            <span>Western</span>
+            <span>Central</span>
+            <span>Southern</span>
+            <span>North &amp; East</span>
+          </div>
+        </div>
+
+        <div className="lp-t lp-f lp-flex-tile">
+          <div className="lp-card-top">
+            <div className="lp-mail-badge" aria-hidden="true">
+              <Icon name="mail" size={18} />
+              <i />
+            </div>
+            <span className="lp-lbl mono" style={{ margin: 0, color: "#9EC2B5" }}>03 · Verified alerts</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-.025em", lineHeight: 1.2 }}>
+              Every update lands in your inbox.
+            </div>
+            <div className="lp-tl" style={{ color: "#BDD3CA", fontWeight: 400, marginTop: 8 }}>
+              6-digit OTPs, approvals, and dispatch notices.
             </div>
           </div>
-          <div className="lp-chips">
-            <span>Urgency</span><span>Vulnerability</span><span>Waiting time</span><span>Distance</span><span>Supply fit</span>
+          <div className="lp-inbox-preview mono">
+            <span>✓ Instant OTP</span>
+            <span>·</span>
+            <span>Live status</span>
           </div>
         </div>
 
-        {/* Chat tile */}
-        <div className="lp-t lp-c">
-          <div className="lp-lbl mono" style={{ color: "#0B6B4D" }}>Chat with the relief team</div>
-          <div className="lp-bub" />
-          <div className="lp-bub u" />
-          <div className="lp-ty" aria-hidden="true"><i /><i /><i /></div>
-        </div>
-
-        <div className="lp-t lp-d">
-          <div className="lp-lbl mono">Request in 3 steps</div>
-          <div className="lp-big">3</div>
-          <div className="lp-tl">What you need, where you are, send. Confirmation arrives by email.</div>
-          <div className="lp-arw" aria-hidden="true">→</div>
-        </div>
-
-        <div className="lp-t lp-e">
-          <div className="lp-lbl mono">Covering every district</div>
-          <div className="lp-big lp-cnt" style={{ ["--n" as string]: 25 }} />
-          <div className="lp-tl">districts across the island</div>
-        </div>
-
-        <div className="lp-t lp-f">
-          <div className="lp-env" aria-hidden="true"><i /></div>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em", lineHeight: 1.2 }}>Every update lands in your inbox.</div>
-          <div className="lp-tl" style={{ color: "#B7BDDA", fontWeight: 400 }}>Verification codes, approvals, messages.</div>
-        </div>
-
-        <div className="lp-t lp-g">
-          <div className="lp-lbl mono" style={{ color: "#CDEFF2" }}>Ask in your language</div>
-          <div className="lp-lc">
+        <div className="lp-t lp-g lp-flex-tile">
+          <div className="lp-card-top">
+            <span className="lp-lbl mono" style={{ margin: 0, color: "#D6ECE4" }}>04 · Trilingual</span>
+            <span className="lp-lang-pill mono">EN · සිං · த</span>
+          </div>
+          <div className="lp-lc lp-lc-lk">
             <div>
-              <b>Help</b><b>උදව්</b><b>உதவி</b><b>مساعدة</b><b>Aide</b><b>Ayuda</b><b>Help</b>
+              <b>Help</b>
+              <b>උදව්</b>
+              <b>உதவி</b>
+              <b>Help</b>
             </div>
           </div>
-          <div className="lp-tl" style={{ fontWeight: 400, color: "#CDEFF2" }}>Sinhala, Tamil and English.</div>
+          <div>
+            <div className="lp-tl" style={{ fontWeight: 500, color: "#E4F2EC", marginTop: 0 }}>
+              Sinhala, Tamil and English.
+            </div>
+            <div className="lp-mini-pills" style={{ marginTop: 10 }}>
+              <span>English</span>
+              <span>සිංහල</span>
+              <span>தமிழ்</span>
+            </div>
+          </div>
         </div>
 
         <div className="lp-t lp-h" id="how">
-          <h2 className="lp-h2">From a worried message to help at the door</h2>
-          <p className="lp-p">Follow every step of your request.</p>
-          <div className="lp-st">
-            {STEPS.map((s, i) => (
-              <div className="lp-sp" key={s}>
-                <b>{i + 1}</b>
-                <span>{s}</span>
+          <div className="lp-card-top" style={{ marginBottom: 18 }}>
+            <div>
+              <span className="eyebrow" style={{ color: "var(--teal)" }}>END-TO-END WORKFLOW</span>
+              <h2 className="lp-h2" style={{ marginTop: 4 }}>From a worried message to help at the door</h2>
+              <p className="lp-p">Follow every step of your request in real time with complete accountability.</p>
+            </div>
+            <Link href="/register" className="btn btn-teal btn-sm" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
+              Start request →
+            </Link>
+          </div>
+
+          <div className="lp-modern-steps">
+            {PIPELINE.map((step) => (
+              <div className="lp-step-card" key={step.num}>
+                <div className="lp-step-head">
+                  <span className="lp-step-ico">
+                    <Icon name={step.icon} size={16} />
+                  </span>
+                  <span className="mono lp-step-num">{step.num}</span>
+                </div>
+                <b>{step.title}</b>
+                <p>{step.detail}</p>
               </div>
             ))}
           </div>
         </div>
 
         <div className="lp-t lp-i">
-          <h2 className="lp-h2">A record nobody can quietly edit</h2>
-          <p className="lp-p" style={{ marginBottom: 14 }}>Each entry is linked to the one before.</p>
-          <div className="lp-hs"><b>AI suggested</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
-          <div className="lp-hs"><b>Staff decided</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
-          <div className="lp-hs"><b>Dispatched</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
+          <span className="eyebrow" style={{ color: "var(--teal)" }}>TAMPER-EVIDENT LEDGER</span>
+          <h2 className="lp-h2" style={{ marginTop: 4 }}>A record nobody can quietly edit</h2>
+          <p className="lp-p" style={{ marginBottom: 16 }}>Each entry is cryptographically linked to the one before.</p>
+
+          <div className="lp-modern-chain">
+            <div className="lp-chain-item ai">
+              <span className="lp-chain-dot ai" />
+              <div className="lp-chain-card ai">
+                <div className="lp-chain-row">
+                  <b>AI suggested priority</b>
+                  <span className="tag tag-ai" style={{ padding: "2px 8px", fontSize: 10 }}>AI</span>
+                </div>
+                <span className="mono lp-chain-hash">hash: #a9f4 · prev: #0000</span>
+              </div>
+            </div>
+
+            <div className="lp-chain-item">
+              <span className="lp-chain-dot sage" />
+              <div className="lp-chain-card">
+                <div className="lp-chain-row">
+                  <b>Staff coordinator decided</b>
+                  <span className="tag tag-teal" style={{ padding: "2px 8px", fontSize: 10 }}>Verified</span>
+                </div>
+                <span className="mono lp-chain-hash">hash: #3c8e · prev: #a9f4</span>
+              </div>
+            </div>
+
+            <div className="lp-chain-item">
+              <span className="lp-chain-dot moss" />
+              <div className="lp-chain-card">
+                <div className="lp-chain-row">
+                  <b>Relief dispatched</b>
+                  <span className="tag tag-mint" style={{ padding: "2px 8px", fontSize: 10 }}>Sealed</span>
+                </div>
+                <span className="mono lp-chain-hash">hash: #f17b · prev: #3c8e</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

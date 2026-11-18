@@ -3,8 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Toast } from "@/components/ui";
-import { AuthShell, PasswordField } from "@/components/auth/AuthShell";
+import { Toast } from "@/components/ui";
+import { AuthShell, NeoField, PasswordField } from "@/components/auth/AuthShell";
 
 function SetPasswordInner() {
   const router = useRouter();
@@ -39,85 +39,55 @@ function SetPasswordInner() {
     }
   }
 
-  const darkInput: React.CSSProperties = {
-    background: "#161D45",
-    borderColor: "#2A3366",
-    color: "#fff",
-  };
-  const darkLabel: React.CSSProperties = { color: "#B7BDDA" };
-
   return (
     <AuthShell
       theme="staff"
-      badge="STAFF INVITATION · 24H TOKEN"
-      asideTitle="Activate your staff account."
-      asideLead="Complete your one-time invitation from the System Administrator by choosing your password."
-      trustItems={[
-        {
-          icon: "shield",
-          title: "Single-use invite token",
-          detail: "Invitation tokens expire after 24 hours and can only be used once.",
-        },
-        {
-          icon: "people",
-          title: "Role pre-assigned",
-          detail: "Your coordinator or officer permissions are activated immediately.",
-        },
-      ]}
+      asideTitle="Activate staff account"
+      formTitle={
+        <>
+          Activate your
+          <br />
+          staff account
+        </>
+      }
+      formSubtitle="Confirm your invite email, token, and set a password."
     >
-      <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: "#fff" }}>
-        Activate staff account
-      </h1>
-      <p style={{ margin: "0 0 20px", fontSize: 14, color: "#A9B4DA" }}>
-        Confirm your invited work email, token, and set your password.
-      </p>
-
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
-        <div>
-          <label className="bento-label" style={darkLabel} htmlFor="inv-email">Invited work email</label>
-          <input
-            id="inv-email"
-            type="email"
-            required
-            className="bento-input"
-            style={darkInput}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="bento-label" style={darkLabel} htmlFor="inv-token">One-time invitation token</label>
-          <input
-            id="inv-token"
-            type="text"
-            required
-            className="bento-input mono"
-            style={darkInput}
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-          />
-        </div>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 11 }}>
+        <NeoField
+          id="inv-email"
+          label="Invited work email"
+          type="email"
+          inputMode="email"
+          placeholder="Invited work email"
+          value={email}
+          onChange={setEmail}
+        />
+        <NeoField
+          id="inv-token"
+          label="Invitation token"
+          mono
+          placeholder="One-time invitation token"
+          value={token}
+          onChange={setToken}
+        />
         <PasswordField
           id="inv-pass"
           label="Password"
           value={password}
           onChange={setPassword}
           minLength={8}
-          placeholder="Minimum 8 characters with a number"
+          placeholder="Password"
           autoComplete="new-password"
-          dark
           showRules
         />
         {error && <Toast tone="critical">{error}</Toast>}
-        <Button type="submit" variant="cta" fullWidth pill disabled={loading} style={{ minHeight: 52 }}>
-          {loading ? "Activating…" : "Activate account & enter console →"}
-        </Button>
+        <button type="submit" disabled={loading} className="voy-submit staff" style={{ marginTop: 4 }}>
+          {loading ? "Activating…" : "Activate & enter"}
+        </button>
       </form>
 
-      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #263168", fontSize: 13 }}>
-        <Link href="/staff/login" style={{ color: "#DCE2F7", textDecoration: "none", fontWeight: 600 }}>
-          ← Back to staff sign in
-        </Link>
+      <div className="voy-foot">
+        <Link href="/staff/login">Back to staff sign in</Link>
       </div>
     </AuthShell>
   );

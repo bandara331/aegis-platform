@@ -42,6 +42,7 @@ public class AegisDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RequestCategory> RequestCategories => Set<RequestCategory>();
     public DbSet<EmailOtpChallenge> EmailOtpChallenges => Set<EmailOtpChallenge>();
     public DbSet<StaffInvitation> StaffInvitations => Set<StaffInvitation>();
+    public DbSet<OfficialAlert> OfficialAlerts => Set<OfficialAlert>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Toast } from "@/components/ui";
-import { AuthShell, PasswordField } from "@/components/auth/AuthShell";
+import { Toast } from "@/components/ui";
+import { AuthShell, NeoField, PasswordField } from "@/components/auth/AuthShell";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -14,6 +14,8 @@ export default function StaffLoginPage() {
   const [requiresOtp, setRequiresOtp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,136 +53,76 @@ export default function StaffLoginPage() {
     }
   }
 
-  const darkInput: React.CSSProperties = {
-    background: "#161D45",
-    borderColor: "#2A3366",
-    color: "#fff",
-  };
-  const darkLabel: React.CSSProperties = { color: "#B7BDDA" };
-
   return (
     <AuthShell
       theme="staff"
-      badge="STAFF & COORDINATOR PORTAL"
-      asideTitle="Command & triage console."
-      asideLead="Restricted to authorized coordinators, case managers, logistics, shelter, volunteer, donor, and partner officers."
+      asideTitle="Command & triage portal"
+      formTitle={
+        <>
+          Staff command
+          <br />
+          portal
+        </>
+      }
       activeTab="staff"
-      trustItems={[
-        {
-          icon: "shield",
-          title: "Tamper-evident audit chain",
-          detail: "Every approval, override, and dispatch is sealed with your staff ID.",
-        },
-        {
-          icon: "sparkle",
-          title: "AI recommends, humans decide",
-          detail: "Inspect explainable priority factors before approving or rejecting.",
-        },
-        {
-          icon: "people",
-          title: "Role-based access",
-          detail: "Separate staff accounts and critical-case second approver checks.",
-        },
-      ]}
-      footerNote="Staff accounts are provisioned by invitation from a System Administrator."
     >
-      <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", color: "#fff" }}>
-        Staff sign in
-      </h1>
-      <p style={{ margin: "0 0 22px", fontSize: 14, color: "#A9B4DA" }}>
-        Enter your work credentials to access the AEGIS Operations Console.
-      </p>
-
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <div>
-          <label className="bento-label" style={darkLabel} htmlFor="staff-email">
-            Work email
-          </label>
-          <input
-            id="staff-email"
-            type="email"
-            required
-            className="bento-input"
-            style={darkInput}
-            placeholder="coordinator@aegis.lk"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-        </div>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 11 }}>
+        <NeoField
+          id="staff-email"
+          label="Work email"
+          type="email"
+          inputMode="email"
+          placeholder="Work email (coordinator@aegis.lk)"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+          valid={email.trim().length > 0 ? emailValid : undefined}
+          statusText={email.trim().length > 0 && emailValid ? "✓" : undefined}
+        />
 
         <PasswordField
           id="staff-pass"
           label="Password"
           value={password}
           onChange={setPassword}
-          placeholder="Enter staff password"
+          placeholder="Staff password"
           autoComplete="current-password"
-          dark
           rightAction={
             <Link
               href="/forgot-password"
-              style={{ fontSize: 12, color: "var(--sun)", textDecoration: "none", fontWeight: 600 }}
+              style={{ fontSize: 11, color: "#274A43", textDecoration: "none", fontWeight: 600 }}
             >
-              Reset password
+              Reset password?
             </Link>
           }
         />
 
         {requiresOtp && (
-          <div
-            style={{
-              padding: 14,
-              borderRadius: 16,
-              background: "#161E49",
-              border: "1px solid #303D7D",
-            }}
-          >
-            <label className="bento-label" style={darkLabel} htmlFor="staff-otp">
-              6-digit security code (sent to your work email)
-            </label>
-            <input
-              id="staff-otp"
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              required
-              className="bento-input mono"
-              style={darkInput}
-              placeholder="000000"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
+          <NeoField
+            id="staff-otp"
+            label="6-digit security code"
+            inputMode="numeric"
+            maxLength={6}
+            mono
+            placeholder="6-digit security OTP"
+            value={otp}
+            onChange={(val) => setOtp(val.replace(/\D/g, ""))}
+            valid={otp.length === 6}
+            statusText={`${otp.length}/6`}
+          />
         )}
 
         {error && <Toast tone="critical">{error}</Toast>}
 
-        <Button type="submit" variant="cta" fullWidth pill disabled={loading} style={{ minHeight: 52, marginTop: 4 }}>
-          {loading ? "Authenticating…" : requiresOtp ? "Verify code & enter console →" : "Enter staff console →"}
-        </Button>
+        <button type="submit" disabled={loading} className="voy-submit staff" style={{ marginTop: 4 }}>
+          {loading ? "Authenticating…" : requiresOtp ? "Verify & enter" : "Enter console"}
+        </button>
       </form>
 
-      <div
-        style={{
-          marginTop: 22,
-          paddingTop: 16,
-          borderTop: "1px solid #263168",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          fontSize: 13,
-          color: "#A9B4DA",
-        }}
-      >
-        <Link href="/set-password" style={{ color: "#DCE2F7", textDecoration: "none" }}>
-          Have a staff invite token?
-        </Link>
-        <Link href="/login" style={{ color: "#fff", fontWeight: 700, textDecoration: "none" }}>
-          Citizen sign in →
-        </Link>
+      <div className="voy-foot">
+        Have a staff invite? <Link href="/set-password">Activate account</Link>
+        {" · "}
+        <Link href="/login" style={{ color: "#3D6356" }}>Citizen login</Link>
       </div>
     </AuthShell>
   );

@@ -18,10 +18,68 @@ namespace Aegis.Api.Controllers;
 public class SheltersController : ControllerBase
 {
     private readonly IShelterService _shelters;
-    public SheltersController(IShelterService shelters) => _shelters = shelters;
+    private readonly IHttpClientFactory _httpFactory;
+
+    public SheltersController(IShelterService shelters, IHttpClientFactory httpFactory)
+    {
+        _shelters = shelters;
+        _httpFactory = httpFactory;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct) => Ok(await _shelters.GetAllAsync(ct));
+
+    /// <summary>Imports real candidate community facilities (schools, halls, shelters) from OpenStreetMap Overpass API.</summary>
+    [HttpGet("candidates")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> GetCandidates([FromQuery] string district, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(district))
+        {
+            return Ok(new { items = Array.Empty<object>(), source = "Overpass", error = (string?)null });
+        }
+
+        try
+        {
+            var clean = district.Trim().Replace("\"", "");
+            var query = $"[out:json][timeout:10];area[\"name\"~\"{clean}\",i][\"boundary\"=\"administrative\"]->.a;(node[\"amenity\"~\"school|community_centre|shelter|place_of_worship\"](area.a);way[\"amenity\"~\"school|community_centre|shelter\"](area.a););out center 15;";
+            var client = _httpFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
+            using var content = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("data", query) });
+            using var res = await client.PostAsync("https://overpass-api.de/api/interpreter", content, ct);
+            if (!res.IsSuccessStatusCode)
+            {
+                return Ok(new { items = Array.Empty<object>(), source = "Overpass", error = $"Overpass API returned HTTP {(int)res.StatusCode}." });
+            }
+
+            using var doc = await System.Text.Json.JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            var list = new List<object>();
+            if (doc.RootElement.TryGetProperty("elements", out var elems))
+            {
+                foreach (var el in elems.EnumerateArray())
+                {
+                    if (!el.TryGetProperty("tags", out var tags)) continue;
+                    var name = tags.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    double lat = el.TryGetProperty("lat", out var la) ? la.GetDouble()
+                        : (el.TryGetProperty("center", out var c1) && c1.TryGetProperty("lat", out var cla) ? cla.GetDouble() : 0);
+                    double lon = el.TryGetProperty("lon", out var lo) ? lo.GetDouble()
+                        : (el.TryGetProperty("center", out var c2) && c2.TryGetProperty("lon", out var clo) ? clo.GetDouble() : 0);
+                    if (lat == 0 || lon == 0) continue;
+
+                    var amenity = tags.TryGetProperty("amenity", out var am) ? am.GetString() : "facility";
+                    list.Add(new { name, district = clean, facilityType = amenity, latitude = lat, longitude = lon });
+                }
+            }
+
+            return Ok(new { items = list, source = "OpenStreetMap Overpass API", error = (string?)null });
+        }
+        catch
+        {
+            return Ok(new { items = Array.Empty<object>(), source = "OpenStreetMap Overpass API", error = "External Overpass API unreachable right now; enter facility details manually." });
+        }
+    }
 
     [HttpPost]
     [Authorize(Policy = "StaffOnly")]
@@ -31,6 +89,20 @@ public class SheltersController : ControllerBase
         var role = User.FindFirstValue(ClaimTypes.Role) ?? "ShelterAdmin";
         var created = await _shelters.CreateAsync(dto, userId, role, ct);
         return Created($"/api/v1/shelters/{created.Id}", created);
+    }
+
+    [HttpPatch("{id:guid}/occupancy")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> UpdateOccupancy(Guid id, [FromBody] UpdateShelterOccupancyDto dto, CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var role = User.FindFirstValue(ClaimTypes.Role) ?? "ShelterAdmin";
+        var result = await _shelters.UpdateOccupancyAsync(id, dto.Occupancy, dto.Notes, userId, role, ct);
+        if (result.IsFailure)
+        {
+            return Conflict(new ProblemDetails { Status = 409, Title = "Shelter Occupancy Conflict", Detail = result.Error });
+        }
+        return Ok(result.Value);
     }
 
     /// <summary>Concurrency-safe shelter allocation. Returns HTTP 409 Conflict if capacity would be exceeded.</summary>
@@ -294,28 +366,86 @@ public class VolunteersController : ControllerBase
     private readonly AegisDbContext _context;
     private readonly IRoutingService _routing;
     private readonly IAuditService _audit;
+    private readonly INicCryptoService _nicCrypto;
 
-    public VolunteersController(AegisDbContext context, IRoutingService routing, IAuditService audit)
+    public VolunteersController(AegisDbContext context, IRoutingService routing, IAuditService audit, INicCryptoService nicCrypto)
     {
         _context = context;
         _routing = routing;
         _audit = audit;
+        _nicCrypto = nicCrypto;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await _context.Volunteers.AsNoTracking().ToListAsync(ct));
+        => Ok(await _context.Volunteers.AsNoTracking().OrderByDescending(v => v.CreatedAt).ToListAsync(ct));
+
+    [HttpGet("assignments")]
+    public async Task<IActionResult> GetAssignments(CancellationToken ct)
+        => Ok(await _context.VolunteerAssignments.AsNoTracking().OrderByDescending(a => a.AssignedAt).ToListAsync(ct));
+
+    /// <summary>Public volunteer registration with optional NIC (encrypted & masked identically to citizen accounts). Requires staff verification.</summary>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<IActionResult> PublicRegister([FromBody] CreateVolunteerDto dto, CancellationToken ct)
+    {
+        string? maskedNic = null;
+        string? nicCipher = null;
+        if (!string.IsNullOrWhiteSpace(dto.Nic))
+        {
+            var trimmed = dto.Nic.Trim();
+            maskedNic = _nicCrypto.MaskNic(trimmed);
+            nicCipher = _nicCrypto.EncryptNic(trimmed);
+        }
+
+        var vol = new Volunteer
+        {
+            UserId = Guid.NewGuid().ToString(),
+            FullName = dto.FullName.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            Skills = dto.Skills.Trim(),
+            Availability = string.IsNullOrWhiteSpace(dto.Availability) ? "Immediate" : dto.Availability,
+            District = dto.District?.Trim() ?? string.Empty,
+            IsVerified = false,
+            MaskedNic = maskedNic,
+            NicCiphertext = nicCipher,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            IsActive = true
+        };
+
+        _context.Volunteers.Add(vol);
+        await _context.SaveChangesAsync(ct);
+
+        await _audit.AppendAsync("Volunteer", vol.Id.ToString(), "PublicRegister", vol.UserId, "Volunteer",
+            new { vol.FullName, vol.District, hasNic = maskedNic != null }, ct);
+
+        return Created($"/api/v1/volunteers/{vol.Id}", new { vol.Id, vol.FullName, vol.District, vol.IsVerified, vol.MaskedNic });
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateVolunteerDto dto, CancellationToken ct)
     {
+        string? maskedNic = null;
+        string? nicCipher = null;
+        if (!string.IsNullOrWhiteSpace(dto.Nic))
+        {
+            var trimmed = dto.Nic.Trim();
+            maskedNic = _nicCrypto.MaskNic(trimmed);
+            nicCipher = _nicCrypto.EncryptNic(trimmed);
+        }
+
         var vol = new Volunteer
         {
             UserId = Guid.NewGuid().ToString(),
-            FullName = dto.FullName,
-            PhoneNumber = dto.PhoneNumber,
-            Skills = dto.Skills,
+            FullName = dto.FullName.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            Skills = dto.Skills.Trim(),
             Availability = dto.Availability,
+            District = dto.District?.Trim() ?? string.Empty,
+            IsVerified = true,
+            MaskedNic = maskedNic,
+            NicCiphertext = nicCipher,
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
             IsActive = true
@@ -323,6 +453,23 @@ public class VolunteersController : ControllerBase
         _context.Volunteers.Add(vol);
         await _context.SaveChangesAsync(ct);
         return Created($"/api/v1/volunteers/{vol.Id}", vol);
+    }
+
+    [HttpPost("{id:guid}/verify")]
+    public async Task<IActionResult> Verify(Guid id, CancellationToken ct)
+    {
+        var vol = await _context.Volunteers.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vol == null) return NotFound();
+
+        vol.IsVerified = true;
+        vol.IsActive = true;
+        await _context.SaveChangesAsync(ct);
+
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "VolunteerCoordinator";
+        await _audit.AppendAsync("Volunteer", vol.Id.ToString(), "Verify", actorId, actorRole, new { vol.FullName, vol.District }, ct);
+
+        return Ok(vol);
     }
 
     /// <summary>Matches volunteers by skill overlap + availability + distance, with explanation.</summary>
@@ -417,9 +564,35 @@ public class DonationsAndCampaignsController : ControllerBase
     [Authorize(Policy = "StaffOnly")]
     public async Task<IActionResult> CreateCampaign([FromBody] CreateCampaignDto dto, CancellationToken ct)
     {
+        var crisisId = dto.CrisisId;
+        if (crisisId == Guid.Empty || !await _context.Crises.AnyAsync(c => c.Id == crisisId, ct))
+        {
+            var existing = await _context.Crises.FirstOrDefaultAsync(c => c.Status == CrisisStatus.Active, ct)
+                           ?? await _context.Crises.FirstOrDefaultAsync(ct);
+            if (existing != null)
+            {
+                crisisId = existing.Id;
+            }
+            else
+            {
+                var crisis = new Crisis
+                {
+                    Title = dto.Title,
+                    Description = dto.Description,
+                    Region = "Sri Lanka",
+                    Severity = "High",
+                    Status = CrisisStatus.Active,
+                    DeclaredAt = DateTime.UtcNow
+                };
+                _context.Crises.Add(crisis);
+                await _context.SaveChangesAsync(ct);
+                crisisId = crisis.Id;
+            }
+        }
+
         var campaign = new Campaign
         {
-            CrisisId = dto.CrisisId,
+            CrisisId = crisisId,
             Title = dto.Title,
             Description = dto.Description,
             TargetAmount = dto.TargetAmount,
@@ -440,7 +613,7 @@ public class DonationsAndCampaignsController : ControllerBase
 
         var list = await query.OrderByDescending(d => d.CreatedAt).ToListAsync(ct);
         return Ok(list.Select(d => new DonationResponseDto(
-            d.Id, d.CampaignId, d.DonorName, d.Amount, d.Currency, d.Flagged, d.FlagReason, d.CreatedAt
+            d.Id, d.CampaignId, d.DonorName, d.Amount, d.Currency, d.Flagged, d.FlagReason, d.CreatedAt, d.ReviewStatus, d.ReviewNotes
         )));
     }
 
@@ -478,7 +651,8 @@ public class DonationsAndCampaignsController : ControllerBase
             Amount = dto.Amount,
             Currency = dto.Currency ?? "LKR",
             Flagged = flagged,
-            FlagReason = flagReason
+            FlagReason = flagReason,
+            ReviewStatus = flagged ? "Pending" : "Approved"
         };
 
         if (!flagged)
@@ -493,7 +667,118 @@ public class DonationsAndCampaignsController : ControllerBase
             dto.DonorEmail, "Donor", new { dto.Amount, dto.Currency, flagged, flagReason }, ct);
 
         return Created($"/api/v1/donations/{donation.Id}", new DonationResponseDto(
-            donation.Id, donation.CampaignId, donation.DonorName, donation.Amount, donation.Currency, donation.Flagged, donation.FlagReason, donation.CreatedAt
+            donation.Id, donation.CampaignId, donation.DonorName, donation.Amount, donation.Currency, donation.Flagged, donation.FlagReason, donation.CreatedAt, donation.ReviewStatus, donation.ReviewNotes
         ));
+    }
+
+    [HttpPost("donations/{id:guid}/review")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> ReviewDonation(Guid id, [FromBody] ReviewDonationDto dto, CancellationToken ct)
+    {
+        var donation = await _context.Donations.Include(d => d.Campaign).FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (donation == null) return NotFound();
+
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "DonorOfficer";
+
+        if (dto.Approve && donation.ReviewStatus != "Approved")
+        {
+            donation.ReviewStatus = "Approved";
+            donation.Flagged = false;
+            if (donation.Campaign != null) donation.Campaign.CurrentAmount += donation.Amount;
+        }
+        else if (!dto.Approve)
+        {
+            donation.ReviewStatus = "Rejected";
+        }
+        donation.ReviewedById = actorId;
+        donation.ReviewedAtUtc = DateTime.UtcNow;
+        donation.ReviewNotes = dto.Notes;
+
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("Donation", donation.Id.ToString(), dto.Approve ? "ApproveFlagged" : "RejectFlagged",
+            actorId, actorRole, new { donation.Amount, dto.Notes }, ct);
+
+        return Ok(new DonationResponseDto(
+            donation.Id, donation.CampaignId, donation.DonorName, donation.Amount, donation.Currency, donation.Flagged, donation.FlagReason, donation.CreatedAt, donation.ReviewStatus, donation.ReviewNotes
+        ));
+    }
+}
+
+[ApiController]
+[Route("api/v1/alerts")]
+public class AlertsController : ControllerBase
+{
+    private readonly AegisDbContext _context;
+    private readonly IAuditService _audit;
+
+    public AlertsController(AegisDbContext context, IAuditService audit)
+    {
+        _context = context;
+        _audit = audit;
+    }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAlerts([FromQuery] bool? activeOnly, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var query = _context.OfficialAlerts.AsNoTracking();
+        if (activeOnly == true)
+        {
+            query = query.Where(a => !a.IsExpired && (a.ExpiresAtUtc == null || a.ExpiresAtUtc > now));
+        }
+
+        var items = await query.OrderByDescending(a => a.IssuedAtUtc).ToListAsync(ct);
+        return Ok(items);
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Create([FromBody] CreateAlertDto dto, CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator";
+
+        var alert = new OfficialAlert
+        {
+            Title = dto.Title.Trim(),
+            Message = dto.Message.Trim(),
+            District = dto.District.Trim(),
+            Severity = string.IsNullOrWhiteSpace(dto.Severity) ? "Warning" : dto.Severity.Trim(),
+            Language = string.IsNullOrWhiteSpace(dto.Language) ? "en" : dto.Language.Trim(),
+            IssuedById = actorId,
+            IssuedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = dto.ExpiresInHours.HasValue && dto.ExpiresInHours.Value > 0
+                ? DateTime.UtcNow.AddHours(dto.ExpiresInHours.Value)
+                : null,
+            IsExpired = false
+        };
+
+        _context.OfficialAlerts.Add(alert);
+        await _context.SaveChangesAsync(ct);
+
+        await _audit.AppendAsync("OfficialAlert", alert.Id.ToString(), "Create", actorId, actorRole,
+            new { alert.Title, alert.District, alert.Severity, alert.Language }, ct);
+
+        return Created($"/api/v1/alerts/{alert.Id}", alert);
+    }
+
+    [HttpPost("{id:guid}/expire")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Expire(Guid id, CancellationToken ct)
+    {
+        var alert = await _context.OfficialAlerts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (alert == null) return NotFound();
+
+        alert.IsExpired = true;
+        alert.ExpiresAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator";
+        await _audit.AppendAsync("OfficialAlert", alert.Id.ToString(), "Expire", actorId, actorRole, new { alert.Title }, ct);
+
+        return Ok(alert);
     }
 }

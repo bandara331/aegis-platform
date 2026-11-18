@@ -30,7 +30,7 @@ const URGENCY_LEVELS = [
   { level: 2, label: "Standard", tint: "var(--surface)", border: "var(--border-card)" },
   { level: 3, label: "High need", tint: "var(--teal-tint)", border: "var(--teal)" },
   { level: 4, label: "Urgent", tint: "var(--sun-tint)", border: "var(--sun)" },
-  { level: 5, label: "Life-critical", tint: "var(--coral-tint)", border: "var(--coral)" },
+  { level: 5, label: "Life-critical", tint: "#FFE7E4", border: "#FF5A4F" },
 ];
 
 async function verifyClientMagicBytes(file: File): Promise<string | null> {
@@ -267,8 +267,10 @@ export default function CitizenRequestAidPage() {
       <div
         className="card"
         style={{
+          maxWidth: 640,
+          margin: "24px auto",
           borderRadius: "32px",
-          padding: "32px 24px",
+          padding: "36px 28px",
           textAlign: "center",
           border: "2px solid var(--mint)",
         }}
@@ -276,10 +278,10 @@ export default function CitizenRequestAidPage() {
         <span className="tag tag-mint" style={{ marginBottom: "12px" }}>
           <Icon name="check" size={14} /> REQUEST RECEIVED
         </span>
-        <div className="mono" style={{ fontSize: "26px", fontWeight: 800, color: "var(--ink)" }}>
+        <div className="mono" style={{ fontSize: "28px", fontWeight: 800, color: "var(--ink)" }}>
           {createdRequest.trackingNumber}
         </div>
-        <p style={{ fontSize: "14px", color: "var(--muted)", margin: "10px 0 20px" }}>
+        <p style={{ fontSize: "14px", color: "var(--muted)", margin: "10px 0 22px" }}>
           A confirmation email with your reference number <b>{createdRequest.trackingNumber}</b> has been queued to{" "}
           <b>{createdRequest.contactEmail || contactEmail || "your email"}</b>. Redirecting to your live status timeline…
         </p>
@@ -293,48 +295,35 @@ export default function CitizenRequestAidPage() {
     );
   }
 
+  const urgencyLabel = URGENCY_LEVELS.find((u) => u.level === selfUrgency)?.label ?? "Standard";
+
   return (
-    <div style={{ display: "grid", gap: "18px" }}>
-      <div
-        className="card"
-        style={{
-          borderRadius: "32px",
-          padding: "28px 24px",
-          background: "var(--surface)",
-        }}
-      >
-        {/* Top Eyebrow + My Requests button */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+    <form onSubmit={handleFormSubmit} className="cit-split-grid">
+      {/* Left Studio Card: Needs, Description, People & Urgency */}
+      <div className="card" style={{ borderRadius: "28px", padding: "26px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", gap: 8, flexWrap: "wrap" }}>
           <span className="tag tag-teal">
             <span className="live-dot" style={{ width: 6, height: 6 }} /> EMERGENCY REQUEST
           </span>
-          <Link href="/my-requests" className="btn btn-ghost btn-sm">
-            My requests →
+          <Link href="/my-requests" className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>
+            Submitted cases →
           </Link>
         </div>
 
-        <h1
-          style={{
-            fontSize: "28px",
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            lineHeight: 1.15,
-            margin: "4px 0 6px",
-          }}
-        >
+        <h1 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: "4px 0 6px" }}>
           What do you need?
         </h1>
-        <p style={{ fontSize: "14px", color: "var(--muted)", margin: 0 }}>
+        <p style={{ fontSize: "14px", color: "var(--muted)", margin: "0 0 14px" }}>
           Pick all categories that apply. Coordinators review every request in real time.
         </p>
 
         {/* 1. Category chips from database */}
         {loadingMeta ? (
-          <div style={{ margin: "16px 0" }}>
+          <div style={{ margin: "12px 0" }}>
             <Skeleton height="44px" />
           </div>
         ) : categories.length === 0 ? (
-          <div style={{ margin: "16px 0" }}>
+          <div style={{ margin: "12px 0" }}>
             <EmptyState
               title="No aid categories loaded"
               description="Ensure the backend API is running and database reference migrations are applied."
@@ -360,7 +349,7 @@ export default function CitizenRequestAidPage() {
           </div>
         )}
 
-        <form onSubmit={handleFormSubmit} className="stack" style={{ marginTop: "12px", gap: "18px" }}>
+        <div className="stack" style={{ marginTop: "14px", gap: "18px" }}>
           {/* 2. Situation description */}
           <div className="field">
             <label className="label" htmlFor="req-description">
@@ -373,11 +362,12 @@ export default function CitizenRequestAidPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
+              style={{ minHeight: "128px" }}
             />
           </div>
 
           {/* 3. Number of people stepper + Urgency selector */}
-          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: "14px", alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "170px 1fr", gap: "14px", alignItems: "end" }}>
             <div className="field">
               <label className="label" htmlFor="req-people">
                 People affected
@@ -494,9 +484,9 @@ export default function CitizenRequestAidPage() {
                       fontSize: "12.5px",
                       fontWeight: 600,
                       cursor: "pointer",
-                      border: active ? "1.5px solid var(--coral)" : "1.5px solid var(--border-card)",
-                      background: active ? "var(--coral-tint)" : "var(--surface)",
-                      color: "var(--ink)",
+                      border: active ? "1.5px solid #FF5A4F" : "1.5px solid var(--border-card)",
+                      background: active ? "#FFE7E4" : "#fff",
+                      color: active ? "#9F1E16" : "var(--ink)",
                       transition: "all .15s ease",
                     }}
                   >
@@ -507,7 +497,38 @@ export default function CitizenRequestAidPage() {
               })}
             </div>
           </div>
+        </div>
+      </div>
 
+      {/* Right Studio Card: Live Summary + GPS Location + Evidence + Contact & Send */}
+      <div style={{ display: "grid", gap: "18px" }}>
+        {/* Live Deep-Forest Request Summary Banner */}
+        <div className="cit-summary-banner">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", color: "#B9E29A" }}>
+              ● LIVE DISPATCH PREVIEW
+            </span>
+            <span className="mono" style={{ fontSize: 11, color: "#D6E8DF" }}>
+              {selectedCategories.length} {selectedCategories.length === 1 ? "category" : "categories"}
+            </span>
+          </div>
+          <div className="cit-summary-stats">
+            <div className="cit-summary-cell">
+              <span>District</span>
+              <b>{location.area || "Select district"}</b>
+            </div>
+            <div className="cit-summary-cell">
+              <span>People</span>
+              <b>{peopleCount} {peopleCount === 1 ? "person" : "people"}</b>
+            </div>
+            <div className="cit-summary-cell">
+              <span>Urgency</span>
+              <b>{urgencyLabel}</b>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ borderRadius: "28px", padding: "24px", display: "grid", gap: "18px" }}>
           {/* 5. Location via LocationPicker (GPS by default) */}
           <LocationPicker
             districts={districts}
@@ -558,7 +579,7 @@ export default function CitizenRequestAidPage() {
               />
             </label>
             {evidenceError && (
-              <span style={{ fontSize: "12px", color: "var(--coral)", fontWeight: 600 }}>
+              <span style={{ fontSize: "12px", color: "#9F1E16", fontWeight: 600 }}>
                 {evidenceError}
               </span>
             )}
@@ -680,9 +701,9 @@ export default function CitizenRequestAidPage() {
               style={{
                 padding: "12px 14px",
                 borderRadius: "14px",
-                background: "var(--coral-tint)",
-                border: "1px solid var(--coral)",
-                color: "var(--ink)",
+                background: "#FFE7E4",
+                border: "1px solid #FF5A4F",
+                color: "#9F1E16",
                 fontSize: "13px",
               }}
             >
@@ -692,15 +713,14 @@ export default function CitizenRequestAidPage() {
 
           <button
             type="submit"
-            className="btn btn-teal btn-lg btn-block"
+            className="btn btn-coral btn-lg btn-block"
             disabled={submitting || categories.length === 0}
-            style={{ marginTop: "4px" }}
           >
-            {submitting ? "Sending request…" : "Send request"}
+            {submitting ? "Sending request…" : "Send emergency request"}
             <Icon name="arrow" size={16} />
           </button>
-        </form>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }

@@ -26,48 +26,78 @@ export function CitizenChatClient({ requests }: { requests: RequestDetail[] }) {
   }
 
   return (
-    <Card style={{ padding: 18, display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div>
-          <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--teal)" }}>
-            ACTIVE THREAD · #{active.trackingNumber}
-          </span>
-          <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>
-            {active.category} — {active.area}
+    <div className="cit-chat-studio">
+      {/* Left Case Thread Sidebar */}
+      <Card style={{ padding: 18, display: "grid", gap: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div>
+            <span className="mono muted" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em" }}>
+              DIRECT RELIEF INBOX
+            </span>
+            <h2 style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800 }}>
+              Your threads ({requests.length})
+            </h2>
           </div>
+          <Link href="/request" className="btn btn-coral btn-sm" style={{ textDecoration: "none", padding: "0 12px" }}>
+            + New
+          </Link>
         </div>
-        <Link href={`/my-requests/${active.id}`} className="btn btn-ghost btn-sm">
-          View status →
-        </Link>
-      </div>
 
-      {requests.length > 1 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <label className="mono muted" htmlFor="cit-chat-thread" style={{ fontSize: 11, fontWeight: 700 }}>
-            SWITCH CASE:
-          </label>
-          <select
-            id="cit-chat-thread"
-            className="input"
-            style={{ flex: 1, padding: "7px 12px", fontSize: 13 }}
-            value={active.id}
-            onChange={(e) => setSelectedId(e.target.value)}
-          >
-            {requests.map((r) => (
-              <option key={r.id} value={r.id}>
-                #{r.trackingNumber} · {r.category} ({r.status})
-              </option>
-            ))}
-          </select>
+        <div className="cit-thread-list" role="listbox" aria-label="Case chat threads">
+          {requests.map((r) => {
+            const on = r.id === active.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                role="option"
+                aria-selected={on}
+                className={`cit-thread-btn ${on ? "on" : ""}`.trim()}
+                onClick={() => setSelectedId(r.id)}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                  <span className="mono" style={{ fontSize: 11.5, fontWeight: 800, color: "var(--teal)" }}>
+                    #{r.trackingNumber}
+                  </span>
+                  <span className="tag tag-mint" style={{ padding: "2px 8px", fontSize: 10 }}>
+                    {r.status}
+                  </span>
+                </div>
+                <b style={{ fontSize: 14, color: "var(--ink)", fontWeight: 700 }}>
+                  {r.category}
+                </b>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {r.area} · {r.peopleCount} {r.peopleCount === 1 ? "person" : "people"}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </Card>
 
-      <LiveRequestChat
-        requestId={active.id}
-        trackingNumber={active.trackingNumber}
-        viewerRole="Citizen"
-        height={380}
-      />
-    </Card>
+      {/* Right Full Live Coordinator Thread */}
+      <Card style={{ padding: 22, display: "grid", gap: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--teal)" }}>
+              ACTIVE THREAD · #{active.trackingNumber}
+            </span>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+              {active.category} — {active.area}
+            </div>
+          </div>
+          <Link href={`/my-requests/${active.id}`} className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>
+            View timeline &amp; status →
+          </Link>
+        </div>
+
+        <LiveRequestChat
+          requestId={active.id}
+          trackingNumber={active.trackingNumber}
+          viewerRole="Citizen"
+          height={460}
+        />
+      </Card>
+    </div>
   );
 }

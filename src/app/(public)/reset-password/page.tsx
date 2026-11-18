@@ -3,8 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Toast } from "@/components/ui";
-import { AuthShell, PasswordField } from "@/components/auth/AuthShell";
+import { Toast } from "@/components/ui";
+import { AuthShell, NeoField, PasswordField } from "@/components/auth/AuthShell";
 
 function ResetPasswordInner() {
   const router = useRouter();
@@ -41,75 +41,56 @@ function ResetPasswordInner() {
   return (
     <AuthShell
       theme="citizen"
-      badge="OTP PASSWORD RESET"
-      asideTitle="Set a strong new password."
-      asideLead="Enter the 6-digit code from your email and choose a new password with at least 8 characters and 1 number."
-      trustItems={[
-        {
-          icon: "check",
-          title: "Instant update",
-          detail: "You can sign in immediately after confirming your new password.",
-        },
-        {
-          icon: "shield",
-          title: "Audited security event",
-          detail: "Password resets are logged in the security audit trail.",
-        },
-      ]}
+      asideTitle="Set a new password"
+      formTitle={
+        <>
+          Set a strong
+          <br />
+          new password
+        </>
+      }
+      formSubtitle="Confirm your 6-digit code and pick a new password."
     >
-      <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em" }}>
-        Set a new password
-      </h1>
-      <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--muted)" }}>
-        Confirm your 6-digit code and enter your new password.
-      </p>
-
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
-        <div>
-          <label className="bento-label" htmlFor="rp-email">Email address</label>
-          <input
-            id="rp-email"
-            type="email"
-            required
-            className="bento-input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="bento-label" htmlFor="rp-otp">6-digit reset OTP</label>
-          <input
-            id="rp-otp"
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            required
-            className="bento-input mono"
-            placeholder="000000"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-          />
-        </div>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 11 }}>
+        <NeoField
+          id="rp-email"
+          label="Email"
+          type="email"
+          inputMode="email"
+          placeholder="Email"
+          value={email}
+          onChange={setEmail}
+        />
+        <NeoField
+          id="rp-otp"
+          label="6-digit OTP"
+          inputMode="numeric"
+          maxLength={6}
+          mono
+          placeholder="6-digit reset OTP"
+          value={otp}
+          onChange={(val) => setOtp(val.replace(/\D/g, ""))}
+          valid={otp.length === 6}
+          statusText={otp.length > 0 ? `${otp.length}/6` : undefined}
+        />
         <PasswordField
           id="rp-pass"
           label="New password"
           value={newPassword}
           onChange={setNewPassword}
           minLength={8}
-          placeholder="Minimum 8 characters with a number"
+          placeholder="New password"
           autoComplete="new-password"
           showRules
         />
         {error && <Toast tone="critical">{error}</Toast>}
-        <Button type="submit" fullWidth pill disabled={loading} style={{ minHeight: 50 }}>
-          {loading ? "Updating…" : "Confirm new password →"}
-        </Button>
+        <button type="submit" disabled={loading} className="voy-submit" style={{ marginTop: 4 }}>
+          {loading ? "Updating…" : "Confirm password"}
+        </button>
       </form>
 
-      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border-card)", fontSize: 13 }}>
-        <Link href="/login" style={{ color: "var(--teal)", textDecoration: "none", fontWeight: 600 }}>
-          ← Back to sign in
-        </Link>
+      <div className="voy-foot">
+        <Link href="/login">Back to sign in</Link>
       </div>
     </AuthShell>
   );

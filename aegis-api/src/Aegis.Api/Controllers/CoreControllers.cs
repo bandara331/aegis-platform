@@ -6,6 +6,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aegis.Api.Controllers;
 
@@ -540,5 +541,83 @@ public class AssistantController : ControllerBase
             .GetString() ?? "";
 
         return Ok(new { reply, model = modelId, advisory = true });
+    }
+}
+
+public record UpdateAccountProfileDto(string FullName, string PhoneNumber, string PreferredLanguage);
+
+[ApiController]
+[Route("api/v1/account")]
+[Authorize]
+public class AccountController : ControllerBase
+{
+    private readonly Aegis.Infrastructure.Persistence.AegisDbContext _context;
+    private readonly Aegis.Domain.Interfaces.IAuditService _audit;
+
+    public AccountController(Aegis.Infrastructure.Persistence.AegisDbContext context, Aegis.Domain.Interfaces.IAuditService audit)
+    {
+        _context = context;
+        _audit = audit;
+    }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMe(CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+        var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user == null) return NotFound();
+
+        var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        return Ok(new
+        {
+            userId = user.Id,
+            fullName = user.FullName,
+            email = user.Email ?? string.Empty,
+            phoneNumber = user.PhoneNumber ?? string.Empty,
+            maskedNic = user.MaskedNic,
+            preferredLanguage = user.PreferredLanguage ?? "en",
+            emailConfirmed = user.EmailConfirmed,
+            createdAt = user.CreatedAt,
+            roles
+        });
+    }
+
+    [HttpPatch("me")]
+    public async Task<IActionResult> UpdateMe([FromBody] UpdateAccountProfileDto dto, CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            return BadRequest(new ProblemDetails { Status = 400, Title = "Invalid profile", Detail = "Full name is required." });
+        }
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user == null) return NotFound();
+
+        user.FullName = dto.FullName.Trim();
+        user.PhoneNumber = dto.PhoneNumber?.Trim() ?? string.Empty;
+        user.PreferredLanguage = string.IsNullOrWhiteSpace(dto.PreferredLanguage) ? "en" : dto.PreferredLanguage.Trim();
+
+        await _context.SaveChangesAsync(ct);
+
+        var role = User.FindFirstValue(ClaimTypes.Role) ?? "Citizen";
+        await _audit.AppendAsync("ApplicationUser", user.Id, "UpdateProfile", user.Id, role,
+            new { user.FullName, user.PreferredLanguage }, ct);
+
+        return Ok(new
+        {
+            userId = user.Id,
+            fullName = user.FullName,
+            email = user.Email ?? string.Empty,
+            phoneNumber = user.PhoneNumber ?? string.Empty,
+            maskedNic = user.MaskedNic,
+            preferredLanguage = user.PreferredLanguage,
+            emailConfirmed = user.EmailConfirmed,
+            createdAt = user.CreatedAt
+        });
     }
 }

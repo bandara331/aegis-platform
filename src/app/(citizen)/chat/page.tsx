@@ -6,7 +6,7 @@ export default async function CitizenChatPage() {
   const { data: requests, error } = await getRequests();
 
   return (
-    <div style={{ display: "grid", gap: "16px" }}>
+    <div style={{ display: "grid", gap: "18px" }}>
       <PageHeader
         eyebrow="DIRECT COORDINATOR CHAT"
         eyebrowTone="accent"

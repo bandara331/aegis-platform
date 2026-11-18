@@ -64,6 +64,7 @@ public interface IShelterService
     Task<IReadOnlyList<ShelterResponseDto>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<ShelterResponseDto> CreateAsync(CreateShelterDto dto, string actorId, string actorRole, CancellationToken cancellationToken = default);
     Task<Result<ShelterResponseDto>> AllocateAsync(Guid shelterId, AllocateShelterDto dto, string actorId, string actorRole, CancellationToken cancellationToken = default);
+    Task<Result<ShelterResponseDto>> UpdateOccupancyAsync(Guid shelterId, int occupancy, string? notes, string actorId, string actorRole, CancellationToken cancellationToken = default);
 }
 
 public interface IResourceService

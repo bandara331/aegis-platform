@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 export type IconName =
   | "home" | "list" | "chat" | "pin" | "box" | "people" | "shield" | "heart"
   | "bell" | "doc" | "user" | "pulse" | "plus" | "spark" | "sparkle"
-  | "check" | "search" | "arrow" | "send" | "logout";
+  | "check" | "search" | "arrow" | "send" | "logout"
+  | "mail" | "phone" | "lock" | "key";
 
 const ICONS: Record<IconName, ReactNode> = {
   home: <path d="M3 11l9-8 9 8v10H3z" />,
@@ -26,6 +27,10 @@ const ICONS: Record<IconName, ReactNode> = {
   arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
   send: <path d="M4 12h16m-5-5 5 5-5 5" />,
   logout: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+  mail: (<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>),
+  phone: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.4 2.1L8.1 9.7a16 16 0 0 0 6.2 6.2l1.3-1.3a2 2 0 0 1 2.1-.4c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z" />,
+  lock: (<><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>),
+  key: (<><circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.7 12.3 9.3-9.3M16 7l3 3" /></>),
 };
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
@@ -49,9 +54,9 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden="true">
-      <rect width="28" height="28" rx="9" fill="#0C1230" />
+      <rect width="28" height="28" rx="9" fill="#12271D" />
       <path d="M14 5 21 8v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V8z" fill="none" stroke="#fff" strokeWidth="1.8" />
-      <circle cx="14" cy="12.5" r="2.3" fill="#FF5A4F" />
+      <circle cx="14" cy="12.5" r="2.3" fill="#7AA84F" />
     </svg>
   );
 }

@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Toast } from "@/components/ui";
-import { AuthShell } from "@/components/auth/AuthShell";
+import { Toast } from "@/components/ui";
+import { AuthShell, NeoField } from "@/components/auth/AuthShell";
 
 function VerifyEmailInner() {
   const router = useRouter();
@@ -104,73 +104,61 @@ function VerifyEmailInner() {
   return (
     <AuthShell
       theme="citizen"
-      badge="STEP 2 OF 2 · VERIFY EMAIL"
-      asideTitle="One last security check."
-      asideLead="Enter the 6-digit verification code sent to your inbox to activate your account and open the relief request form."
-      trustItems={[
-        {
-          icon: "bell",
-          title: "10-minute validity",
-          detail: "Codes expire automatically after 10 minutes or 5 failed attempts.",
-        },
-        {
-          icon: "check",
-          title: "Paste supported",
-          detail: "Copy the 6-digit code from your email and paste into the first box.",
-        },
-      ]}
+      asideTitle="Verify your email"
+      formTitle={
+        <>
+          Check your
+          <br />
+          email code
+        </>
+      }
+      formSubtitle="Enter the 6-digit code sent to your inbox."
     >
-      <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em" }}>
-        Check your email
-      </h1>
-      <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--muted)", lineHeight: 1.45 }}>
-        Enter the 6-digit code we sent to confirm your email address.
-      </p>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+        <NeoField
+          id="verify-email-input"
+          label="Email"
+          type="email"
+          inputMode="email"
+          placeholder="Email"
+          value={email}
+          onChange={setEmail}
+        />
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <div>
-          <label className="bento-label" htmlFor="verify-email-input">Email address</label>
-          <input
-            id="verify-email-input"
-            type="email"
-            required
-            className="bento-input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <span className="bento-label">6-digit verification code</span>
-          <div className="otp-row" role="group" aria-label="6-digit code">
-            {digits.map((d, idx) => (
-              <input
-                key={idx}
-                ref={(el) => {
-                  inputsRef.current[idx] = el;
-                }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                className="mono"
-                aria-label={`Digit ${idx + 1}`}
-                value={d}
-                onChange={(e) => handleDigitChange(idx, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(idx, e)}
-                onPaste={idx === 0 ? handlePaste : undefined}
-              />
-            ))}
-          </div>
+        <div className="otp-row" role="group" aria-label="6-digit code">
+          {digits.map((d, idx) => (
+            <input
+              key={idx}
+              ref={(el) => {
+                inputsRef.current[idx] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              className="mono"
+              aria-label={`Digit ${idx + 1}`}
+              value={d}
+              onChange={(e) => handleDigitChange(idx, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(idx, e)}
+              onPaste={idx === 0 ? handlePaste : undefined}
+              style={{
+                background: "#F1F3F4",
+                borderColor: d ? "#3D6356" : "transparent",
+                color: "#111827",
+                borderRadius: 16,
+              }}
+            />
+          ))}
         </div>
 
         {error && <Toast tone="critical">{error}</Toast>}
         {info && <Toast tone="success">{info}</Toast>}
 
-        <Button type="submit" fullWidth pill disabled={loading} style={{ minHeight: 50 }}>
-          {loading ? "Verifying…" : "Verify email & continue →"}
-        </Button>
+        <button type="submit" disabled={loading} className="voy-submit" style={{ marginTop: 4 }}>
+          {loading ? "Verifying…" : "Verify & continue"}
+        </button>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+        <div className="voy-foot" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button
             type="button"
             disabled={cooldown > 0}
@@ -179,16 +167,15 @@ function VerifyEmailInner() {
               background: "none",
               border: 0,
               padding: 0,
-              color: cooldown > 0 ? "var(--muted)" : "var(--teal)",
+              color: cooldown > 0 ? "#6B7280" : "#3D6356",
               fontWeight: 600,
+              fontSize: 12,
               cursor: cooldown > 0 ? "default" : "pointer",
             }}
           >
-            {cooldown > 0 ? `Resend available in ${mm}:${ss}` : "Resend verification code"}
+            {cooldown > 0 ? `Resend in ${mm}:${ss}` : "Resend code"}
           </button>
-          <Link href="/login" style={{ color: "var(--muted)", textDecoration: "none", fontWeight: 600 }}>
-            Back to sign in
-          </Link>
+          <Link href="/login">Back to sign in</Link>
         </div>
       </form>
     </AuthShell>

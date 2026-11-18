@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Toast } from "@/components/ui";
-import { AuthShell, PasswordField } from "@/components/auth/AuthShell";
+import { Toast } from "@/components/ui";
+import { AuthShell, NeoField, PasswordField } from "@/components/auth/AuthShell";
 
 export default function CitizenLoginPage() {
   const router = useRouter();
@@ -12,6 +12,8 @@ export default function CitizenLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,62 +49,41 @@ export default function CitizenLoginPage() {
   return (
     <AuthShell
       theme="citizen"
-      badge="CITIZEN PORTAL"
-      asideTitle="Direct line to emergency relief."
-      asideLead="Sign in to submit an assistance request, track every status step, and chat directly with verified field coordinators."
+      asideTitle="Welcome back, citizen"
+      formTitle={
+        <>
+          Direct line to
+          <br />
+          emergency relief
+        </>
+      }
       activeTab="login"
-      trustItems={[
-        {
-          icon: "shield",
-          title: "Protected identity",
-          detail: "Your NIC is encrypted at rest and displayed masked to staff.",
-        },
-        {
-          icon: "chat",
-          title: "Live coordinator chat",
-          detail: "Two-way updates and system dispatch notices in your dashboard.",
-        },
-        {
-          icon: "sparkle",
-          title: "Multilingual AI guidance",
-          detail: "Preparedness checklists in English, සිංහල, and தமிழ்.",
-        },
-      ]}
-      footerNote="Need urgent help right now? Sign in or create an account in under a minute."
     >
-      <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em" }}>
-        Welcome back
-      </h1>
-      <p style={{ margin: "0 0 22px", fontSize: 14, color: "var(--muted)" }}>
-        Sign in with your registered email and password.
-      </p>
-
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <div>
-          <label className="bento-label" htmlFor="citizen-email">Email address</label>
-          <input
-            id="citizen-email"
-            type="email"
-            required
-            className="bento-input"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-        </div>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 11 }}>
+        <NeoField
+          id="citizen-email"
+          label="Email"
+          type="email"
+          inputMode="email"
+          placeholder="Email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+          valid={email.trim().length > 0 ? emailValid : undefined}
+          statusText={email.trim().length > 0 && emailValid ? "✓" : undefined}
+        />
 
         <PasswordField
           id="citizen-password"
           label="Password"
           value={password}
           onChange={setPassword}
-          placeholder="Enter your password"
+          placeholder="Password"
           autoComplete="current-password"
           rightAction={
             <Link
               href="/forgot-password"
-              style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none", fontWeight: 600 }}
+              style={{ fontSize: 11, color: "#3D6356", textDecoration: "none", fontWeight: 600 }}
             >
               Forgot password?
             </Link>
@@ -111,33 +92,16 @@ export default function CitizenLoginPage() {
 
         {error && <Toast tone="critical">{error}</Toast>}
 
-        <Button type="submit" fullWidth pill disabled={loading} style={{ minHeight: 50, marginTop: 4 }}>
-          {loading ? "Signing in…" : "Sign in to Citizen Portal →"}
-        </Button>
+        <button type="submit" disabled={loading} className="voy-submit" style={{ marginTop: 4 }}>
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
       </form>
 
-      <div
-        style={{
-          marginTop: 22,
-          paddingTop: 16,
-          borderTop: "1px solid var(--border-card)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          fontSize: 13,
-        }}
-      >
-        <span className="muted">
-          New to AEGIS?{" "}
-          <Link href="/register" style={{ color: "var(--teal)", textDecoration: "none", fontWeight: 700 }}>
-            Create account
-          </Link>
-        </span>
-        <Link href="/staff/login" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>
-          Staff sign in →
-        </Link>
+      <div className="voy-foot">
+        Don&apos;t have an account?{" "}
+        <Link href="/register">Create account</Link>
+        {" · "}
+        <Link href="/staff/login" style={{ color: "#3D6356" }}>Staff</Link>
       </div>
     </AuthShell>
   );

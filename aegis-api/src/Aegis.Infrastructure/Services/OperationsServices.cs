@@ -149,6 +149,32 @@ public class ShelterService : IShelterService
         return Result<ShelterResponseDto>.Failure("Allocation could not be completed due to concurrent modifications.");
     }
 
+    public async Task<Result<ShelterResponseDto>> UpdateOccupancyAsync(
+        Guid shelterId,
+        int occupancy,
+        string? notes,
+        string actorId,
+        string actorRole,
+        CancellationToken cancellationToken = default)
+    {
+        var shelter = await _context.Shelters.FirstOrDefaultAsync(s => s.Id == shelterId, cancellationToken);
+        if (shelter == null) return Result<ShelterResponseDto>.Failure("Shelter not found.");
+        if (occupancy < 0) return Result<ShelterResponseDto>.Failure("Occupancy cannot be negative.");
+        if (occupancy > shelter.Capacity)
+        {
+            return Result<ShelterResponseDto>.Failure($"Over-capacity conflict: occupancy ({occupancy}) exceeds shelter capacity ({shelter.Capacity}).");
+        }
+
+        var prev = shelter.Occupancy;
+        shelter.Occupancy = occupancy;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.AppendAsync("Shelter", shelter.Id.ToString(), "UpdateOccupancy", actorId, actorRole,
+            new { shelter.Name, previousOccupancy = prev, newOccupancy = occupancy, shelter.Capacity, notes }, cancellationToken);
+
+        return Result<ShelterResponseDto>.Success(Map(shelter));
+    }
+
     private static ShelterResponseDto Map(Shelter s) => new(
         s.Id,
         s.Name,

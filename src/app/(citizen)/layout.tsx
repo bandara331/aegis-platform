@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SessionExpiredModal } from "@/components/ui";
 import { Icon, LogoMark, type IconName } from "@/components/icons/Icon";
 
@@ -11,46 +11,71 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/my-requests", label: "My requests", icon: "list" },
   { href: "/chat", label: "Chat", icon: "chat" },
   { href: "/assistant", label: "Assistant", icon: "spark" },
+  { href: "/alerts", label: "Alerts", icon: "bell" },
   { href: "/profile", label: "Profile", icon: "user" },
 ];
 
 export default function CitizenLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <div className="citizen-shell">
-      <header className="citizen-bar">
-        <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none", color: "inherit" }}>
-            <LogoMark size={26} />
-            <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: "-.02em" }}>AEGIS</span>
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link href="/" className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: "5px 10px" }}>
-              Main hub
+      <header className="cnav-shell">
+        <div className="cnav-bar">
+          <div className="cnav-left">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="cnav-ghost-btn"
+              aria-label="Go back"
+            >
+              ← Back
+            </button>
+            <Link href="/" className="cnav-ghost-btn">
+              <Icon name="home" size={13} /> Home
             </Link>
-            <Link href="/chat" className="btn btn-teal btn-sm" style={{ fontSize: 12, padding: "5px 10px" }}>
-              <Icon name="chat" size={13} /> Chat
+            <Link href="/" className="cnav-brand">
+              <LogoMark size={24} />
+              <b>AEGIS</b>
             </Link>
           </div>
+
+          <nav className="cnav-tabs" aria-label="Citizen portal navigation">
+            {TABS.map((tab) => {
+              const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={`cnav-tab ${active ? "active" : ""}`.trim()}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon name={tab.icon} size={14} />
+                  <span>{tab.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="cnav-signout"
+          >
+            <Icon name="logout" size={14} />
+            <span>Sign out</span>
+          </button>
         </div>
       </header>
 
       <main className="citizen-container">{children}</main>
-
-      <nav className="citizen-tabbar" aria-label="Citizen navigation">
-        <div className="citizen-tabs">
-          {TABS.map((tab) => {
-            const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-            return (
-              <Link key={tab.href} href={tab.href} className={`citizen-tab ${active ? "active" : ""}`.trim()} aria-current={active ? "page" : undefined}>
-                <span className="ic"><Icon name={tab.icon} size={18} /></span>
-                <span>{tab.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
 
       <SessionExpiredModal loginHref="/login" />
     </div>
