@@ -11,7 +11,7 @@ interface AssistantTurn {
   model?: string;
 }
 
-const SAMPLE_PROMPTS = [
+const SUGGESTED_PROMPTS = [
   "Flood evacuation checklist",
   "Keeping insulin cool without power",
   "How AEGIS prioritizes requests",
@@ -180,16 +180,16 @@ export function AiAssistantBox({
 
       {/* Quick prompt pills */}
       <div className="chat-prompts">
-        {SAMPLE_PROMPTS.map((sample) => (
+        {SUGGESTED_PROMPTS.map((prompt) => (
           <button
-            key={sample}
+            key={prompt}
             type="button"
             className="chat-chip ai"
-            onClick={() => void askAi(sample)}
+            onClick={() => void askAi(prompt)}
             disabled={loading}
           >
             <Icon name="spark" size={11} />
-            {sample}
+            {prompt}
           </button>
         ))}
       </div>
