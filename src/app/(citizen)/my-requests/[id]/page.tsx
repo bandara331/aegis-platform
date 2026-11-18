@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { getRequestById } from "@/lib/api";
 import { Button, Card, EmptyState, ErrorState } from "@/components/ui";
-import { getDictionary } from "@/lib/i18n/dictionary";
 import { CaseTabs } from "./CaseTabs";
 import { CitizenRequestActions } from "./CitizenRequestActions";
+import { LiveRequestChat } from "@/components/chat/LiveRequestChat";
 
 function formatBadge(rawStatus: string): { label: string; className: string } {
   const s = rawStatus.toLowerCase();
@@ -28,7 +28,6 @@ export default async function CitizenRequestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const dict = getDictionary("en");
   const { data: req, error } = await getRequestById(id);
 
   if (error) {
@@ -193,40 +192,13 @@ export default async function CitizenRequestDetailPage({
   );
 
   const chatPane = (
-    <div>
-      <div
-        className="msgs-pane"
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          textAlign: "center",
-          color: "var(--muted)",
-          fontSize: 14,
-        }}
-      >
-        <span className="sy">Reference {req.trackingNumber} received</span>
-        <span>{dict.empty.noMessages}</span>
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-        <input
-          className="bento-input"
-          style={{ borderRadius: 999, flex: 1 }}
-          placeholder="Type a message"
-          disabled
-          aria-label="Message"
-        />
-        <span
-          aria-hidden="true"
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: "50%",
-            background: "var(--teal)",
-            opacity: 0.5,
-            flex: "none",
-          }}
-        />
-      </div>
+    <div style={{ marginTop: 12 }}>
+      <LiveRequestChat
+        requestId={req.id}
+        trackingNumber={req.trackingNumber}
+        viewerRole="Citizen"
+        height={380}
+      />
     </div>
   );
 

@@ -1,6 +1,11 @@
-import { Card, EmptyState, PageHeader, Tag } from "@/components/ui";
+import { cookies } from "next/headers";
+import { Card, PageHeader, Tag } from "@/components/ui";
+import { AiAssistantBox } from "@/components/chat/AiAssistantBox";
 
-export default function CitizenAssistantPage() {
+export default async function CitizenAssistantPage() {
+  const cookieStore = await cookies();
+  const isLoggedIn = Boolean(cookieStore.get("aegis_token")?.value);
+
   return (
     <div style={{ display: "grid", gap: "18px" }}>
       <PageHeader
@@ -14,15 +19,11 @@ export default function CitizenAssistantPage() {
         <div style={{ marginBottom: "8px" }}>
           <Tag tone="ai">AI OUTPUT NOTICE</Tag>
         </div>
-        <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+        <p style={{ margin: "0 0 14px", fontSize: "13px", color: "var(--muted)" }}>
           Personal NIC numbers are never sent to the AI assistant. All life-safety dispatches are decided by named human coordinators.
         </p>
+        <AiAssistantBox isLoggedIn={isLoggedIn} />
       </Card>
-
-      <EmptyState
-        title="No active AI conversation"
-        description="Start a conversation when an active crisis advisory is in effect to receive multilingual preparedness checklists."
-      />
     </div>
   );
 }

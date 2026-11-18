@@ -468,3 +468,77 @@ public class AiController : ControllerBase
         return Ok(await _decisions.RecordDecisionAsync(id, dto, userId, role, ct));
     }
 }
+
+public record AssistantPromptDto(string Prompt, string? Language = "en");
+
+[ApiController]
+[Route("api/v1/assistant")]
+[Authorize]
+public class AssistantController : ControllerBase
+{
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly IConfiguration _config;
+
+    public AssistantController(IHttpClientFactory httpFactory, IConfiguration config)
+    {
+        _httpFactory = httpFactory;
+        _config = config;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Ask([FromBody] AssistantPromptDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Prompt))
+        {
+            return BadRequest(new ProblemDetails { Status = 400, Title = "Prompt required", Detail = "Please enter a question for the AI assistant." });
+        }
+
+        var apiKey = _config["Groq:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return StatusCode(503, new ProblemDetails { Status = 503, Title = "AI assistant not configured", Detail = "Groq:ApiKey is not configured on the server." });
+        }
+
+        var client = _httpFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        var langHint = dto.Language switch
+        {
+            "si" => "Respond in Sinhala.",
+            "ta" => "Respond in Tamil.",
+            _ => "Respond in English."
+        };
+
+        var modelId = _config["Groq:Model"] ?? "openai/gpt-oss-20b";
+        var payload = new
+        {
+            model = modelId,
+            temperature = 0.3,
+            max_tokens = 600,
+            messages = new[]
+            {
+                new
+                {
+                    role = "system",
+                    content = $"You are the AEGIS Sri Lanka humanitarian crisis preparedness and triage assistant. {langHint} Give clear, practical life-safety guidance in short bullet points or concise sentences. Never ask for NIC numbers. Remind the user that AI guidance is advisory only and only human coordinators dispatch aid."
+                },
+                new { role = "user", content = dto.Prompt.Trim() }
+            }
+        };
+
+        using var res = await client.PostAsJsonAsync("https://api.groq.com/openai/v1/chat/completions", payload, ct);
+        if (!res.IsSuccessStatusCode)
+        {
+            return StatusCode(503, new ProblemDetails { Status = 503, Title = "AI service unavailable", Detail = $"Groq returned HTTP {(int)res.StatusCode}." });
+        }
+
+        using var doc = await System.Text.Json.JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        var reply = doc.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString() ?? "";
+
+        return Ok(new { reply, model = modelId, advisory = true });
+    }
+}

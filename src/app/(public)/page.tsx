@@ -1,11 +1,24 @@
 import Link from "next/link";
-import { getPublicStats } from "@/lib/api";
+import { cookies } from "next/headers";
+import { getPublicStats, getRequests, type RequestDetail } from "@/lib/api";
+import { MainDashboardHub } from "./MainDashboardHub";
 
 const STEPS = ["Ask", "Verify", "Decide", "Dispatch", "Record"];
 const ROLES = ["Citizens", "Coordinators", "Case managers", "Logistics", "Shelters", "Volunteers", "Donors", "Partners"];
 
 export default async function LandingPage() {
-  const { data: stats } = await getPublicStats();
+  const cookieStore = await cookies();
+  const token = cookieStore.get("aegis_token")?.value;
+  const role = cookieStore.get("aegis_role")?.value;
+  const isLoggedIn = Boolean(token);
+  const isCitizen = isLoggedIn && (!role || role === "Citizen");
+  const isStaff = isLoggedIn && Boolean(role && role !== "Citizen");
+
+  const [{ data: stats }, citizenReqResult] = await Promise.all([
+    getPublicStats(),
+    isCitizen ? getRequests() : Promise.resolve({ data: [] as RequestDetail[], error: null }),
+  ]);
+  const citizenRequests = citizenReqResult.data;
 
   // Only real public aggregates from GET /api/v1/public/stats; hidden when zero.
   const live = stats
@@ -44,10 +57,32 @@ export default async function LandingPage() {
           One live map and one chat for families, coordinators and volunteers. AI suggests, a real person decides, and every step is on the record.
         </p>
         <div className="lp-ctas">
-          <Link className="lbtn cor" href="/register">Request help now</Link>
-          <Link className="lbtn dk" href="/staff/login">Staff sign in</Link>
+          {isCitizen ? (
+            <>
+              <Link className="lbtn cor" href="/request">Request help now</Link>
+              <Link className="lbtn dk" href="/my-requests">My requests</Link>
+            </>
+          ) : isStaff ? (
+            <>
+              <Link className="lbtn cor" href="/admin/chat">Staff chat inbox</Link>
+              <Link className="lbtn dk" href="/admin">Admin console</Link>
+            </>
+          ) : (
+            <>
+              <Link className="lbtn cor" href="/register">Request help now</Link>
+              <Link className="lbtn dk" href="/login">Citizen sign in</Link>
+              <Link className="lbtn dk" href="/staff/login">Staff sign in</Link>
+            </>
+          )}
         </div>
       </header>
+
+      <MainDashboardHub
+        isLoggedIn={isLoggedIn}
+        isCitizen={isCitizen}
+        isStaff={isStaff}
+        citizenRequests={citizenRequests}
+      />
 
       {live.length > 0 && (
         <section
@@ -65,20 +100,25 @@ export default async function LandingPage() {
       )}
 
       <section className="lp-bento" aria-label="Product overview">
-        {/* Live map tile (structure only; pins appear from real data inside the app) */}
-        <div className="lp-t lp-a">
-          <svg className="lp-map" viewBox="0 0 700 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Live map with a sweeping radar">
-            <rect width="700" height="600" fill="#0C1230" />
-            <path d="M0 100H700M0 220H700M0 340H700M0 460H700M0 580H700M110 0V600M250 0V600M390 0V600M530 0V600" stroke="#1A2350" strokeWidth="2" />
-            <path d="M-10 430 C130 370 240 460 370 350 S570 270 710 190" fill="none" stroke="#1D3C8F" strokeWidth="30" strokeLinecap="round" />
-            <path d="M90 120 L450 90 L570 250 L410 450 L130 410Z" fill="rgba(255,201,74,.07)" stroke="#FFC94A" strokeDasharray="8 8" strokeWidth="1.6" />
-          </svg>
-          <div className="lp-radar" aria-hidden="true" />
-          <div className="lp-live"><i />Live map · requests appear as they arrive</div>
-          <div className="lp-legend">
-            <span>● Critical</span>
-            <span>● Needs review</span>
-            <span>● Safe shelter</span>
+        {/* Real Sri Lanka OpenStreetMap tile */}
+        <div className="lp-t lp-a" style={{ padding: 0, overflow: "hidden", position: "relative" }}>
+          <iframe
+            title="Sri Lanka operations map"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=79.52,5.90,81.90,9.85&layer=mapnik"
+            style={{ width: "100%", height: "100%", minHeight: "360px", border: 0, display: "block" }}
+            loading="lazy"
+          />
+          <div
+            className="lp-live"
+            style={{
+              background: "rgba(12, 18, 48, 0.86)",
+              backdropFilter: "blur(8px)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.16)",
+            }}
+          >
+            <i />
+            Sri Lanka · {stats ? `${stats.openRequestsCount} open requests · ${stats.openSheltersCount} shelters` : "Live Operations Map"}
           </div>
         </div>
 

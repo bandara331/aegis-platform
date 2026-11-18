@@ -12,7 +12,7 @@ const STAFF_ROLES = new Set([
   "SystemAdmin",
 ]);
 
-const CITIZEN_PATHS = ["/request", "/my-requests", "/assistant", "/profile"];
+const CITIZEN_PATHS = ["/request", "/my-requests", "/chat", "/assistant", "/profile"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -62,6 +62,7 @@ export const config = {
     "/command/:path*",
     "/request/:path*",
     "/my-requests/:path*",
+    "/chat/:path*",
     "/assistant/:path*",
     "/profile/:path*",
   ],

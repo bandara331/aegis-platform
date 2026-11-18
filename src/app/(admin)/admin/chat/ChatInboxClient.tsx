@@ -1,20 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icons/Icon";
 import { EmptyState } from "@/components/ui";
+import { LiveRequestChat } from "@/components/chat/LiveRequestChat";
 import type { AiRecommendationItem, QueueItem } from "@/lib/api";
 
 type FilterTab = "All" | "Unread" | "Mine" | "Bot handoffs";
-
-interface ChatMessage {
-  id: string;
-  sender: "citizen" | "staff";
-  author: string;
-  text: string;
-  time: string;
-}
 
 const QUICK_REPLIES = [
   "Team is on the way",
@@ -25,16 +18,13 @@ const QUICK_REPLIES = [
 
 export function ChatInboxClient({
   cases,
-  recommendations,
 }: {
   cases: QueueItem[];
-  recommendations: AiRecommendationItem[];
+  recommendations?: AiRecommendationItem[];
 }) {
   const [filter, setFilter] = useState<FilterTab>("All");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(cases[0]?.id ?? null);
-  const [draftText, setDraftText] = useState("");
-  const [messagesByCase, setMessagesByCase] = useState<Record<string, ChatMessage[]>>({});
 
   const filteredCases = cases.filter((c) => {
     if (search.trim()) {
@@ -49,31 +39,6 @@ export function ChatInboxClient({
   });
 
   const activeCase = cases.find((c) => c.id === selectedId) ?? filteredCases[0] ?? null;
-  const activeRec = activeCase
-    ? recommendations.find(
-        (r) => r.requestTrackingNumber === activeCase.id || r.requestId === activeCase.id
-      ) ?? null
-    : null;
-
-  const activeMessages = activeCase ? messagesByCase[activeCase.id] ?? [] : [];
-
-  function handleSend(e: FormEvent) {
-    e.preventDefault();
-    if (!activeCase || !draftText.trim()) return;
-    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const nextMsg: ChatMessage = {
-      id: `${Date.now()}`,
-      sender: "staff",
-      author: "Coordinator",
-      text: draftText.trim(),
-      time: `${now} · ✓✓`,
-    };
-    setMessagesByCase((prev) => ({
-      ...prev,
-      [activeCase.id]: [...(prev[activeCase.id] ?? []), nextMsg],
-    }));
-    setDraftText("");
-  }
 
   return (
     <div className="chat-shell">
@@ -208,73 +173,18 @@ export function ChatInboxClient({
             </div>
           </div>
 
-          <div className="msgs">
-            <div className="day-div">
-              <span>CASE #{activeCase.id} THREAD</span>
+          <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 12.5, padding: "10px 14px", borderRadius: 14, background: "var(--surface-soft)", border: "1px solid var(--border-card)" }}>
+              <b>Initial need:</b> {activeCase.need} <span className="muted">({activeCase.area} · {activeCase.wait})</span>
             </div>
-
-            <div className="b b-in">
-              {activeCase.need}
-              <span className="meta">
-                Citizen request · {activeCase.area} · {activeCase.wait}
-              </span>
-            </div>
-
-            {activeMessages.map((m) => (
-              <div key={m.id} className={m.sender === "staff" ? "b b-out" : "b b-in"}>
-                {m.text}
-                <span className="meta">
-                  {m.author} · {m.time}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* AI Suggested Draft Bar */}
-          {activeRec && (
-            <div className="dr">
-              <span className="tag tag-ai">
-                <Icon name="sparkle" size={11} /> AI DRAFT
-              </span>
-              <p>
-                “We have received your request #{activeCase.id} in {activeCase.area} and a coordinator is reviewing dispatch options now.”
-              </p>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ height: "30px", padding: "0 11px", fontSize: "12px" }}
-                onClick={() =>
-                  setDraftText(
-                    `We have received your request #${activeCase.id} in ${activeCase.area} and a coordinator is reviewing dispatch options now.`
-                  )
-                }
-              >
-                Insert
-              </button>
-            </div>
-          )}
-
-          {/* Quick reply chips */}
-          <div className="qr">
-            {QUICK_REPLIES.map((q) => (
-              <button key={q} type="button" onClick={() => setDraftText(q)}>
-                {q}
-              </button>
-            ))}
-          </div>
-
-          {/* Composer */}
-          <form className="cmp" onSubmit={handleSend}>
-            <input
-              placeholder="Write a reply…"
-              value={draftText}
-              onChange={(e) => setDraftText(e.target.value)}
+            <LiveRequestChat
+              requestId={activeCase.id}
+              trackingNumber={activeCase.id}
+              viewerRole="Staff"
+              quickReplies={QUICK_REPLIES}
+              height={360}
             />
-            <button type="submit" className="btn btn-teal btn-sm">
-              Send
-              <Icon name="send" size={14} />
-            </button>
-          </form>
+          </div>
         </section>
       )}
 
