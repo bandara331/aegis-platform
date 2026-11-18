@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, EmptyState, ErrorState, PageHeader, Tag, Toast } from "@/components/ui";
+import type { StockForecastDto } from "@/lib/api/types";
 
 interface ResourceRow {
   id: string;
@@ -46,6 +47,7 @@ interface ScenarioResult {
 
 export default function AdminResourcesPage() {
   const [resources, setResources] = useState<ResourceRow[]>([]);
+  const [forecasts, setForecasts] = useState<Record<string, StockForecastDto>>({});
   const [requests, setRequests] = useState<RequestOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +76,17 @@ export default function AdminResourcesPage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [resR, reqR] = await Promise.all([
+      const [resR, reqR, fcR] = await Promise.all([
         fetch("/api/ops/resources", { cache: "no-store" }),
         fetch("/api/requests", { cache: "no-store" }),
+        fetch("/api/ops/ai/forecast/stock", { cache: "no-store" }),
       ]);
+      if (fcR.ok) {
+        const fcList = (await fcR.json()) as StockForecastDto[];
+        const map: Record<string, StockForecastDto> = {};
+        for (const f of fcList) map[f.resourceId] = f;
+        setForecasts(map);
+      }
       if (!resR.ok) {
         setError(`Failed to load resources (HTTP ${resR.status}).`);
         return;
@@ -258,6 +267,21 @@ export default function AdminResourcesPage() {
                         <Tag tone={r.quantityAvailable === 0 ? "critical" : lowStock ? "warning" : "success"}>
                           {r.quantityAvailable} / {r.quantityTotal} {r.unit} {lowStock ? "· LOW STOCK" : ""}
                         </Tag>
+                        {forecasts[r.id] && (
+                          <div style={{ marginTop: 6 }}>
+                            <span
+                              className="tag tag-ai"
+                              style={{
+                                fontSize: 11,
+                                background: forecasts[r.id].alertTriggered ? "#FEE2E2" : undefined,
+                                color: forecasts[r.id].alertTriggered ? "#991B1B" : undefined,
+                              }}
+                              title={forecasts[r.id].explanation}
+                            >
+                              {forecasts[r.id].hasEnoughData ? forecasts[r.id].displayText : "not enough data"}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>

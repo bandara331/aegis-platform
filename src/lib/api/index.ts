@@ -1,7 +1,11 @@
 import { cookies } from "next/headers";
 import type {
+  AiAnalyticsDto,
+  AiGovernanceViewDto,
   AiRecommendationItem,
+  AiStatusDto,
   ApiLoadResult,
+  DistrictRiskResponseDto,
   Kpi,
   DuplicateCandidate,
   RequestChatMessage,
@@ -10,6 +14,7 @@ import type {
   QueueItem,
   RequestDetail,
   ShelterItem,
+  StockForecastDto,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
@@ -221,6 +226,65 @@ export async function getShelters(): Promise<ApiLoadResult<ShelterItem[]>> {
     return { data: (await res.json()) as ShelterItem[], error: null };
   } catch {
     return { data: [], error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getAiStatus(): Promise<ApiLoadResult<AiStatusDto | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/ai/status`, { headers, cache: "no-store" });
+    if (!res.ok) return { data: null, error: `HTTP ${res.status}` };
+    return { data: (await res.json()) as AiStatusDto, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getAiGovernance(): Promise<ApiLoadResult<AiGovernanceViewDto | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/admin/ai/governance`, { headers, cache: "no-store" });
+    if (!res.ok) return { data: null, error: `Unable to load AI governance (HTTP ${res.status})` };
+    return { data: (await res.json()) as AiGovernanceViewDto, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getAiAnalytics(from?: string, to?: string): Promise<ApiLoadResult<AiAnalyticsDto | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await fetch(`${API_BASE_URL}/admin/ai/analytics${query}`, { headers, cache: "no-store" });
+    if (!res.ok) return { data: null, error: `Unable to load AI analytics (HTTP ${res.status})` };
+    return { data: (await res.json()) as AiAnalyticsDto, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getStockForecasts(): Promise<ApiLoadResult<StockForecastDto[]>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/ai/forecast/stock`, { headers, cache: "no-store" });
+    if (!res.ok) return { data: [], error: `Unable to load stock forecasts (HTTP ${res.status})` };
+    return { data: (await res.json()) as StockForecastDto[], error: null };
+  } catch {
+    return { data: [], error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getDistrictRisk(): Promise<ApiLoadResult<DistrictRiskResponseDto | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/ai/risk/districts`, { headers, cache: "no-store" });
+    if (!res.ok) return { data: null, error: `Unable to load district risk (HTTP ${res.status})` };
+    return { data: (await res.json()) as DistrictRiskResponseDto, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
   }
 }
 

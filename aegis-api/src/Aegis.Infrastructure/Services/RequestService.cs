@@ -18,17 +18,29 @@ public class RequestService : IRequestService
     private readonly IAiProvider _aiProvider;
     private readonly IAuditService _auditService;
     private readonly ILogger<RequestService> _logger;
+    private readonly IMultilingualNluService? _nluService;
+    private readonly IAiGovernanceService? _governanceService;
+    private readonly IDistressDetectionService? _distressService;
+    private readonly IRealtimeSignalPublisher? _signalPublisher;
 
     public RequestService(
         AegisDbContext context,
         IAiProvider aiProvider,
         IAuditService auditService,
-        ILogger<RequestService> logger)
+        ILogger<RequestService> logger,
+        IMultilingualNluService? nluService = null,
+        IAiGovernanceService? governanceService = null,
+        IDistressDetectionService? distressService = null,
+        IRealtimeSignalPublisher? signalPublisher = null)
     {
         _context = context;
         _aiProvider = aiProvider;
         _auditService = auditService;
         _logger = logger;
+        _nluService = nluService;
+        _governanceService = governanceService;
+        _distressService = distressService;
+        _signalPublisher = signalPublisher;
     }
 
     public async Task<CitizenContactProfileDto?> GetCitizenProfileAsync(string userId, CancellationToken cancellationToken = default)
@@ -186,33 +198,84 @@ public class RequestService : IRequestService
             CreatedAt = DateTime.UtcNow
         });
 
-        // Check if AiEngine is currently in Degraded/Unhealthy state
+        // Multilingual NLU normalization (keeps original request.Description untouched)
+        if (_nluService != null)
+        {
+            var nlu = await _nluService.NormalizeAsync(request.Description, request.Language, cancellationToken);
+            request.DetectedLanguage = nlu.DetectedLanguage;
+            request.NormalizedText = nlu.NormalizedText;
+            request.EnglishText = nlu.EnglishText;
+            request.ExtractedJson = System.Text.Json.JsonSerializer.Serialize(nlu.Extracted);
+            request.LanguageConfidence = nlu.Confidence;
+            request.AiTranslated = !nlu.DetectedLanguage.Equals("English", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Check AI Governance mode & threshold
+        var govConfig = _governanceService != null
+            ? await _governanceService.GetCurrentConfigAsync(cancellationToken)
+            : new AiGovernanceConfig { Mode = "Active", ConfidenceThreshold = 0.60, FairnessDisparityThreshold = 0.15 };
+
         var aiHealth = await _context.ServiceHealths.AsNoTracking()
             .FirstOrDefaultAsync(s => s.ServiceName == "AiEngine", cancellationToken);
         var aiDegraded = aiHealth != null && !aiHealth.Status.Equals("Healthy", StringComparison.OrdinalIgnoreCase);
 
-        // Score with AI provider
-        var scoring = await _aiProvider.ScoreUrgencyAsync(request, cancellationToken);
-        request.Priority = scoring.Priority;
-        request.UrgencyScore = (int)(scoring.Confidence * 100);
-        if (aiDegraded)
+        if (govConfig.Mode.Equals("Off", StringComparison.OrdinalIgnoreCase))
         {
             request.Status = RequestStatus.ManualTriage;
+            request.Priority = RequestPriority.Medium;
+            request.UrgencyScore = 50;
         }
-
-        var recommendation = new AiRecommendation
+        else
         {
-            RequestId = request.Id,
-            ModelName = scoring.ModelName,
-            ModelVersion = scoring.ModelVersion,
-            Priority = scoring.Priority,
-            Confidence = scoring.Confidence,
-            RationaleJson = scoring.RationaleJson,
-            FeatureScoresJson = scoring.FeatureScoresJson,
-            Status = RecommendationStatus.Pending
-        };
+            // Score with AI provider
+            var scoring = await _aiProvider.ScoreUrgencyAsync(request, cancellationToken);
+            var isShadow = govConfig.Mode.Equals("Shadow", StringComparison.OrdinalIgnoreCase);
+            var belowThreshold = !isShadow && scoring.Confidence < govConfig.ConfidenceThreshold;
+            var counterfactual = ExtractCounterfactual(scoring.RationaleJson)
+                ?? RuleBasedAiProvider.BuildCounterfactualNote(scoring.Priority, (int)(scoring.Confidence * 100), request.Category, request.PeopleCount);
 
-        request.Recommendations.Add(recommendation);
+            if (isShadow)
+            {
+                request.Status = RequestStatus.ManualTriage;
+                request.Priority = RequestPriority.Medium;
+                request.UrgencyScore = 50;
+            }
+            else
+            {
+                request.Priority = scoring.Priority;
+                request.UrgencyScore = (int)(scoring.Confidence * 100);
+                if (aiDegraded)
+                {
+                    request.Status = RequestStatus.ManualTriage;
+                }
+                else if (belowThreshold)
+                {
+                    request.Status = RequestStatus.NeedsReview;
+                }
+            }
+
+            var rationaleJson = belowThreshold
+                ? RedactSuggestedActionFromRationale(scoring.RationaleJson)
+                : scoring.RationaleJson;
+
+            var recommendation = new AiRecommendation
+            {
+                RequestId = request.Id,
+                ModelName = scoring.ModelName,
+                ModelVersion = scoring.ModelVersion,
+                Priority = scoring.Priority,
+                Confidence = scoring.Confidence,
+                RationaleJson = rationaleJson,
+                FeatureScoresJson = scoring.FeatureScoresJson,
+                Status = RecommendationStatus.Pending,
+                IsShadow = isShadow,
+                BelowThreshold = belowThreshold,
+                PromptVersion = "aegis-triage-v2.0",
+                CounterfactualNote = counterfactual
+            };
+
+            request.Recommendations.Add(recommendation);
+        }
 
         // Outbox Pattern: queue localized "request received" email in the same transaction
         var recipientEmail = !string.IsNullOrWhiteSpace(contactEmail)
@@ -687,7 +750,10 @@ public class RequestService : IRequestService
                 Priority: priorityClass,
                 Score: r.UrgencyScore,
                 Status: statusStr,
-                Selected: false
+                Selected: false,
+                DistressFlagged: r.DistressFlagged,
+                DistressLevel: r.DistressLevel,
+                DistressAcknowledgedAt: r.DistressAcknowledgedAt
             );
         }).ToList();
     }
@@ -913,7 +979,8 @@ public class RequestService : IRequestService
         string senderId,
         string senderRole,
         string senderName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool usedAiDraft = false)
     {
         if (string.IsNullOrWhiteSpace(messageText))
         {
@@ -949,7 +1016,81 @@ public class RequestService : IRequestService
         };
 
         _context.RequestHistories.Add(history);
+
+        DistressResult? highDistress = null;
+        if (senderRole == AegisRoles.Citizen && _distressService != null)
+        {
+            var distress = await _distressService.AnalyzeAsync(messageText, request.DetectedLanguage ?? request.Language, cancellationToken);
+            if (distress.DistressLevel == "high")
+            {
+                highDistress = distress;
+                // Raise priority floor to Critical (never lower existing priority)
+                if (request.Priority < RequestPriority.Critical)
+                {
+                    request.Priority = RequestPriority.Critical;
+                }
+                request.UrgencyScore = Math.Max(request.UrgencyScore, 90);
+                request.DistressFlagged = true;
+                request.DistressLevel = "high";
+                request.DistressReason = distress.Reason;
+                request.DistressDetectedAt = DateTime.UtcNow;
+                request.DistressAcknowledgedAt = null;
+                request.DistressAcknowledgedById = null;
+                request.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (distress.DistressLevel == "elevated" && !request.DistressFlagged)
+            {
+                request.DistressLevel = "elevated";
+                request.DistressReason = distress.Reason;
+            }
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
+
+        if (highDistress != null)
+        {
+            await _auditService.AppendAsync(
+                "AssistanceRequest",
+                request.Id.ToString(),
+                "DistressDetected",
+                senderId,
+                senderRole,
+                new
+                {
+                    distressLevel = highDistress.DistressLevel,
+                    reason = highDistress.Reason,
+                    confidence = highDistress.Confidence,
+                    promptVersion = highDistress.PromptVersion,
+                    priorityFloor = request.Priority.ToString()
+                },
+                cancellationToken);
+
+            if (_signalPublisher != null)
+            {
+                await _signalPublisher.PublishAsync(
+                    "distress.high",
+                    new DistressSignalDto(
+                        request.Id,
+                        request.TrackingNumber,
+                        highDistress.DistressLevel,
+                        highDistress.Reason,
+                        highDistress.Confidence,
+                        request.Priority.ToString(),
+                        DateTime.UtcNow),
+                    cancellationToken);
+            }
+        }
+        else if (senderRole != AegisRoles.Citizen && usedAiDraft)
+        {
+            await _auditService.AppendAsync(
+                "AssistanceRequest",
+                request.Id.ToString(),
+                "ChatMessageSentWithAiDraft",
+                senderId,
+                senderRole,
+                new { note = "sent with AI draft" },
+                cancellationToken);
+        }
 
         var isStaff = senderRole != AegisRoles.Citizen;
         var dto = new RequestChatMessageDto(
@@ -1028,10 +1169,13 @@ public class RequestService : IRequestService
         var canSubmitFeedback = (r.Status == RequestStatus.Fulfilled || r.Status == RequestStatus.Closed) && !r.FeedbackRating.HasValue;
 
         var latestRec = r.Recommendations?.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
-        var aiPriority = latestRec != null ? latestRec.Priority.ToString() : r.Priority.ToString();
-        var aiConfidence = latestRec != null ? latestRec.Confidence : Math.Round(r.UrgencyScore / 100.0, 2);
-        var recommendationId = latestRec?.Id;
-        var englishTranslation = TranslateToEnglish(r.Description, r.Language, r.Category);
+        var visibleRec = latestRec != null && !latestRec.IsShadow ? latestRec : null;
+        var aiPriority = visibleRec != null ? visibleRec.Priority.ToString() : (r.Status == RequestStatus.ManualTriage ? "Manual" : r.Priority.ToString());
+        var aiConfidence = visibleRec != null ? visibleRec.Confidence : (r.Status == RequestStatus.ManualTriage ? 0.0 : Math.Round(r.UrgencyScore / 100.0, 2));
+        var recommendationId = visibleRec?.Id;
+        var englishTranslation = !string.IsNullOrWhiteSpace(r.EnglishText)
+            ? r.EnglishText
+            : TranslateToEnglish(r.Description, r.Language, r.Category);
 
         return new RequestResponseDto(
             r.Id,
@@ -1066,7 +1210,40 @@ public class RequestService : IRequestService
             aiConfidence,
             maskedNic,
             englishTranslation,
-            recommendationId
+            recommendationId,
+            r.DetectedLanguage,
+            r.NormalizedText,
+            r.ExtractedJson,
+            r.LanguageConfidence,
+            r.AiTranslated
         );
+    }
+
+    private static string? ExtractCounterfactual(string rationaleJson)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(rationaleJson);
+            if (doc.RootElement.TryGetProperty("counterfactual", out var cf) && cf.ValueKind == System.Text.Json.JsonValueKind.String)
+                return cf.GetString();
+        }
+        catch { /* ignore malformed rationale */ }
+        return null;
+    }
+
+    private static string RedactSuggestedActionFromRationale(string rationaleJson)
+    {
+        try
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(rationaleJson)?.AsObject();
+            if (node != null)
+            {
+                node["suggestedAction"] = "Needs human review (confidence below configured threshold)";
+                node["belowThreshold"] = true;
+                return node.ToJsonString();
+            }
+        }
+        catch { /* ignore */ }
+        return rationaleJson;
     }
 }

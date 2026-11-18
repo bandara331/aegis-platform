@@ -10,19 +10,32 @@ export function LiveRequestChat({
   viewerRole,
   quickReplies,
   height = 340,
+  externalDraft,
+  onExternalDraftConsumed,
 }: {
   requestId: string;
   trackingNumber?: string;
   viewerRole: "Citizen" | "Staff";
   quickReplies?: string[];
   height?: number;
+  externalDraft?: { text: string; isAiDraft?: boolean } | null;
+  onExternalDraftConsumed?: () => void;
 }) {
   const [messages, setMessages] = useState<RequestChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [usingAiDraft, setUsingAiDraft] = useState(false);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (externalDraft?.text) {
+      setDraft(externalDraft.text);
+      setUsingAiDraft(Boolean(externalDraft.isAiDraft));
+      onExternalDraftConsumed?.();
+    }
+  }, [externalDraft, onExternalDraftConsumed]);
 
   const loadMessages = useCallback(async (silent = false) => {
     if (!requestId) return;
@@ -66,7 +79,7 @@ export function LiveRequestChat({
       const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageText: trimmed }),
+        body: JSON.stringify({ messageText: trimmed, usedAiDraft: usingAiDraft }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -74,6 +87,7 @@ export function LiveRequestChat({
       } else {
         setMessages((prev) => [...prev, data as RequestChatMessage]);
         setDraft("");
+        setUsingAiDraft(false);
       }
     } catch {
       setError("Network error while sending message.");

@@ -34,6 +34,22 @@ public class AssistanceRequest : BaseEntity
     public string? FeedbackComment { get; set; }
     public DateTime? FeedbackSubmittedAt { get; set; }
 
+    // Multilingual NLU normalization (original Description stays untouched)
+    public string DetectedLanguage { get; set; } = "en"; // en, si, ta, singlish, mixed
+    public string? NormalizedText { get; set; }
+    public string? EnglishText { get; set; }
+    public string? ExtractedJson { get; set; } // jsonb {needType, peopleCount, locationHints, medicalTerms}
+    public double? LanguageConfidence { get; set; }
+    public bool AiTranslated { get; set; }
+
+    // Distress detection & staff acknowledgement
+    public bool DistressFlagged { get; set; }
+    public string? DistressLevel { get; set; } // none, elevated, high
+    public string? DistressReason { get; set; }
+    public DateTime? DistressDetectedAt { get; set; }
+    public DateTime? DistressAcknowledgedAt { get; set; }
+    public string? DistressAcknowledgedById { get; set; }
+
     public ICollection<RequestHistory> Histories { get; set; } = new List<RequestHistory>();
     public ICollection<RequestEvidence> Evidence { get; set; } = new List<RequestEvidence>();
     public ICollection<AiRecommendation> Recommendations { get; set; } = new List<AiRecommendation>();

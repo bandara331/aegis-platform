@@ -250,19 +250,20 @@ public class DecisionService : IDecisionService
     {
         var r = await _context.AiRecommendations
             .Include(x => x.Request)
-            .Where(x => x.RequestId == requestId)
+            .Where(x => x.RequestId == requestId && !x.IsShadow)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (r == null) return null;
         return new AiRecommendationDto(r.Id, r.RequestId, r.Request?.TrackingNumber ?? "UNKNOWN", r.ModelName, r.ModelVersion,
-            r.Priority.ToString(), r.Confidence, r.RationaleJson, r.FeatureScoresJson, r.Status.ToString(), r.CreatedAt);
+            r.Priority.ToString(), r.Confidence, r.RationaleJson, r.FeatureScoresJson, r.Status.ToString(), r.CreatedAt,
+            r.IsShadow, r.BelowThreshold, r.PromptVersion, r.CounterfactualNote);
     }
 
     public async Task<IReadOnlyList<AiRecommendationDto>> GetPendingRecommendationsAsync(CancellationToken cancellationToken = default)
     {
         var recs = await _context.AiRecommendations
             .Include(r => r.Request)
-            .Where(r => r.Status == RecommendationStatus.Pending)
+            .Where(r => r.Status == RecommendationStatus.Pending && !r.IsShadow)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -277,7 +278,11 @@ public class DecisionService : IDecisionService
             r.RationaleJson,
             r.FeatureScoresJson,
             r.Status.ToString(),
-            r.CreatedAt
+            r.CreatedAt,
+            r.IsShadow,
+            r.BelowThreshold,
+            r.PromptVersion,
+            r.CounterfactualNote
         )).ToList();
     }
 }

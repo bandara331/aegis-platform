@@ -43,6 +43,13 @@ public class AegisDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<EmailOtpChallenge> EmailOtpChallenges => Set<EmailOtpChallenge>();
     public DbSet<StaffInvitation> StaffInvitations => Set<StaffInvitation>();
     public DbSet<OfficialAlert> OfficialAlerts => Set<OfficialAlert>();
+    public DbSet<AiGovernanceConfig> AiGovernanceConfigs => Set<AiGovernanceConfig>();
+    public DbSet<WeatherSnapshot> WeatherSnapshots => Set<WeatherSnapshot>();
+    public DbSet<SituationReportDraft> SituationReportDrafts => Set<SituationReportDraft>();
+    public DbSet<StockForecastSnapshot> StockForecastSnapshots => Set<StockForecastSnapshot>();
+    public DbSet<DistrictRiskSnapshot> DistrictRiskSnapshots => Set<DistrictRiskSnapshot>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<DispatchPlan> DispatchPlans => Set<DispatchPlan>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -77,6 +84,7 @@ public class AegisDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<AssistanceRequest>(b =>
         {
             b.HasIndex(r => r.TrackingNumber).IsUnique();
+            b.Property(r => r.ExtractedJson).HasColumnType("jsonb");
             b.HasOne(r => r.DuplicateOf)
                 .WithMany()
                 .HasForeignKey(r => r.DuplicateOfId)

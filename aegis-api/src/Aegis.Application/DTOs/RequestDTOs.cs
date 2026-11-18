@@ -108,7 +108,12 @@ public record RequestResponseDto(
     double? AiConfidence = null,
     string? MaskedNic = null,
     string? EnglishTranslation = null,
-    Guid? RecommendationId = null
+    Guid? RecommendationId = null,
+    string? DetectedLanguage = null,
+    string? NormalizedText = null,
+    string? ExtractedJson = null,
+    double? LanguageConfidence = null,
+    bool AiTranslated = false
 );
 
 public record PagedRequestsDto(
@@ -130,7 +135,8 @@ public record RequestChatMessageDto(
 );
 
 public record SendChatMessageDto(
-    string MessageText
+    string MessageText,
+    bool UsedAiDraft = false
 );
 
 public record KeepSeparateDuplicateDto(
@@ -150,5 +156,8 @@ public record CaseItemDto(
     string Priority, // "critical" | "high" | "medium"
     int Score,
     string Status,
-    bool? Selected = false
+    bool? Selected = false,
+    bool? DistressFlagged = false,
+    string? DistressLevel = null,
+    DateTime? DistressAcknowledgedAt = null
 );

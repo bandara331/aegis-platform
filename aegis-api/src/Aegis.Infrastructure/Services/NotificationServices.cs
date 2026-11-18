@@ -140,6 +140,7 @@ public class NotificationOutboxWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationOutboxWorker> _logger;
+    private DateTime _lastRiskRefreshUtc = DateTime.MinValue;
 
     public NotificationOutboxWorker(IServiceScopeFactory scopeFactory, ILogger<NotificationOutboxWorker> logger)
     {
@@ -154,6 +155,17 @@ public class NotificationOutboxWorker : BackgroundService
             try
             {
                 await ProcessPendingOutboxBatchAsync(stoppingToken);
+
+                if (DateTime.UtcNow - _lastRiskRefreshUtc >= TimeSpan.FromMinutes(30))
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var predictor = scope.ServiceProvider.GetService<Aegis.Application.Interfaces.IPredictionService>();
+                    if (predictor != null)
+                    {
+                        await predictor.RefreshDistrictRiskAsync(stoppingToken);
+                        _lastRiskRefreshUtc = DateTime.UtcNow;
+                    }
+                }
             }
             catch (Exception ex)
             {

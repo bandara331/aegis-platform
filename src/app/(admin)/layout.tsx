@@ -24,7 +24,9 @@ const ALL_RAIL_ITEMS: RailItem[] = [
   { href: "/admin/donations", label: "Donations", icon: "heart", roles: ["EmergencyCoordinator", "DonorOfficer", "SystemAdmin"] },
   { href: "/admin/alerts", label: "Alerts", icon: "bell", roles: ["EmergencyCoordinator", "SystemAdmin"] },
   { href: "/admin/audit", label: "Audit", icon: "shield", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
+  { href: "/admin/dispatch", label: "Dispatch", icon: "pin", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
   { href: "/admin/reports", label: "Reports", icon: "doc", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
+  { href: "/admin/ai", label: "AI Gov", icon: "spark", roles: ["SystemAdmin"] },
   { href: "/admin/users", label: "Users", icon: "user", roles: ["SystemAdmin"] },
   { href: "/admin/system", label: "System", icon: "pulse", roles: ["EmergencyCoordinator", "SystemAdmin"] },
 ];
@@ -135,6 +137,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div className="admin-body">
         <header className="admin-top">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="btn btn-ghost btn-sm"
+              aria-label="Go back"
+            >
+              &larr; Back
+            </button>
+            <Link href="/" className="btn btn-ghost btn-sm" aria-label="Go to home page">
+              <Icon name="home" size={13} /> Home
+            </Link>
+          </div>
+
           <div className="crumb">
             <span>AEGIS</span>
             <span>/</span>

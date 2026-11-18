@@ -22,6 +22,8 @@ interface Dispatch {
 interface Rationale {
   summary?: string;
   suggestedAction?: string;
+  counterfactual?: string;
+  belowThreshold?: boolean;
   suggestedDispatch?: Dispatch;
   alternatives?: string[];
   factors?: string[];
@@ -178,9 +180,20 @@ export function RequestHeroDecision({
         <div className="req-mid">
           <h2>{caseTitle}</h2>
           {rationale.summary && <p>{rationale.summary}</p>}
-          {rationale.suggestedAction && (
-            <p style={{ fontWeight: 600, color: "var(--violet)" }}>
-              <Icon name="check" size={14} /> Suggested action: {rationale.suggestedAction}
+          {recommendation.belowThreshold ? (
+            <p style={{ fontWeight: 600, color: "#B45309", background: "#FEF3C7", padding: "6px 10px", borderRadius: 8, display: "inline-block" }}>
+              Needs human review — confidence ({pct}%) is below the configured governance threshold; suggested action suppressed.
+            </p>
+          ) : (
+            rationale.suggestedAction && (
+              <p style={{ fontWeight: 600, color: "var(--violet)" }}>
+                <Icon name="check" size={14} /> Suggested action: {rationale.suggestedAction}
+              </p>
+            )
+          )}
+          {(recommendation.counterfactualNote || rationale.counterfactual) && (
+            <p style={{ fontSize: 12.5, color: "var(--violet)", background: "rgba(124, 58, 237, 0.06)", borderLeft: "3px solid #7C3AED", padding: "6px 10px", borderRadius: 6 }}>
+              <b>Counterfactual (deterministic):</b> {recommendation.counterfactualNote || rationale.counterfactual}
             </p>
           )}
           {features.length > 0 && (

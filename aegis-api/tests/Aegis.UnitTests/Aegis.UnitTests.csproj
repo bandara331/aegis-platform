@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\Aegis.Domain\Aegis.Domain.csproj" />
     <ProjectReference Include="..\..\src\Aegis.Application\Aegis.Application.csproj" />
     <ProjectReference Include="..\..\src\Aegis.Infrastructure\Aegis.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Aegis.Api\Aegis.Api.csproj" />
   </ItemGroup>
 
 </Project>

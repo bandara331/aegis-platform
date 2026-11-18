@@ -25,3 +25,8 @@ docker run -p 5000:8080 `
 
 ### Important Network Note for Cloud Hosts (Azure App Service / Render / Railway)
 Most container hosts provide **IPv4-only** egress by default. Always configure `ConnectionStrings__Default` using the **Supabase Session Pooler** (`aws-0-<region>.pooler.supabase.com`, port `5432`) rather than the IPv6-only direct host.
+
+### Google OR-Tools Native Libraries in Docker
+- `Google.OrTools` ships platform-specific native binaries (`libortools.so` for `linux-x64` / `linux-arm64`).
+- `aegis-api/Dockerfile` uses Debian-based `mcr.microsoft.com/dotnet/aspnet:10.0` (glibc) rather than Alpine/musl, and installs `libgomp1` so OR-Tools native shared libraries load cleanly at runtime.
+- When building on Apple Silicon for `linux-x64` cloud hosts, pass `--platform linux/amd64` to `docker build`.

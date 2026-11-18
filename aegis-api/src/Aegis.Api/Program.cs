@@ -69,6 +69,15 @@ builder.Services.AddScoped<AdminBootstrapService>();
 // Application services (all consumed through interfaces: Dependency Injection)
 builder.Services.AddSingleton<INicCryptoService, NicCryptoService>();
 builder.Services.AddScoped<IAiProvider, RuleBasedAiProvider>();
+builder.Services.AddScoped<IAiGovernanceService, AiGovernanceService>();
+builder.Services.AddSingleton<AiRateLimiter>();
+builder.Services.AddSingleton<InMemoryRealtimeSignalPublisher>();
+builder.Services.AddSingleton<IRealtimeSignalPublisher>(sp => sp.GetRequiredService<InMemoryRealtimeSignalPublisher>());
+builder.Services.AddHttpClient<IMultilingualNluService, GroqMultilingualNluService>();
+builder.Services.AddHttpClient<IDistressDetectionService, GroqDistressDetectionService>();
+builder.Services.AddHttpClient<IAiCopilotService, AiCopilotService>();
+builder.Services.AddHttpClient<IPredictionService, PredictionService>();
+builder.Services.AddHttpClient<IDispatchOptimiser, OrToolsDispatchOptimiser>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IDecisionService, DecisionService>();

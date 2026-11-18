@@ -4,6 +4,7 @@ import {
   getPendingRecommendations,
   getQueue,
   getShelters,
+  getStockForecasts,
   type QueueItem,
 } from "@/lib/api";
 import { Icon } from "@/components/icons/Icon";
@@ -43,11 +44,12 @@ function KanbanCard({ item, highlighted }: { item: QueueItem; highlighted?: bool
 }
 
 export default async function AdminOverviewPage() {
-  const [kpiRes, queueRes, recsRes, sheltersRes] = await Promise.all([
+  const [kpiRes, queueRes, recsRes, sheltersRes, forecastRes] = await Promise.all([
     getKpis(),
     getQueue(),
     getPendingRecommendations(),
     getShelters(),
+    getStockForecasts(),
   ]);
 
   const queue = queueRes.data;
@@ -294,6 +296,25 @@ export default async function AdminOverviewPage() {
               })}
             </svg>
           </div>
+        </div>
+
+        {/* Stock depletion forecast chips */}
+        <div className="sub-card" style={{ marginTop: 16 }}>
+          <div className="sub-head">
+            <h3>Stock Depletion Forecast (EWMA)</h3>
+            <Link href="/admin/resources" className="btn btn-ghost btn-sm">Resources &rarr;</Link>
+          </div>
+          {forecastRes.data.length === 0 ? (
+            <div className="muted" style={{ fontSize: 12.5 }}>No resources registered in database.</div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {forecastRes.data.slice(0, 6).map((f) => (
+                <span key={f.resourceId} className="tag tag-ai" title={f.explanation}>
+                  <b>{f.itemName} ({f.depot}):</b>&nbsp;{f.hasEnoughData ? f.displayText : "not enough data"}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

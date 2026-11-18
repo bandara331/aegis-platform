@@ -49,7 +49,7 @@ public class RuleBasedAiProvider : IAiProvider
     {
         try
         {
-            var text = $"{request.Category} {request.Description} {request.Area}".ToLowerInvariant();
+            var text = $"{request.Category} {request.Description} {request.EnglishText} {request.NormalizedText} {request.ExtractedJson} {request.Area}".ToLowerInvariant();
 
             int urgencyScore = 40;
             int vulnerabilityScore = 30;
@@ -186,6 +186,8 @@ public class RuleBasedAiProvider : IAiProvider
                 routingService = isEstimated ? "Google Routes / OSRM fallback (estimated)" : "OSRM live geometry routing"
             };
 
+            var counterfactual = BuildCounterfactualNote(priority, urgencyScore, request.Category, request.PeopleCount);
+
             var rationale = new
             {
                 summary = plainLanguageRationale,
@@ -201,6 +203,7 @@ public class RuleBasedAiProvider : IAiProvider
                 },
                 alternatives,
                 whyThis,
+                counterfactual,
                 factors = detectedFactors.Count > 0 ? detectedFactors : new List<string> { "Standard triage assessment" }
             };
 
@@ -262,6 +265,29 @@ public class RuleBasedAiProvider : IAiProvider
         // Anomaly: single donation > 1,000,000 LKR
         var isAnomaly = donation.Amount >= 1000000m;
         return Task.FromResult(isAnomaly);
+    }
+
+    public static string BuildCounterfactualNote(RequestPriority priority, int urgencyScore, string category, int peopleCount)
+    {
+        if (priority == RequestPriority.Critical)
+        {
+            return "Already at Critical threshold (score >= 80); if acute medical or life-safety indicators are resolved, priority drops to High.";
+        }
+
+        if (priority == RequestPriority.High)
+        {
+            var pointsNeeded = Math.Max(1, 80 - urgencyScore);
+            return $"If waiting time exceeds 2 hours (adding +{pointsNeeded} urgency weight) or a life-safety signal is reported, the priority becomes Critical.";
+        }
+
+        if (priority == RequestPriority.Medium)
+        {
+            return peopleCount <= 5 && category.Equals("Water", StringComparison.OrdinalIgnoreCase)
+                ? "If waiting time exceeds 2 hours or group size exceeds 5 people, the priority becomes High (or Critical with medical risk)."
+                : "If waiting time exceeds 2 hours the priority becomes Critical; if vulnerability flags are added, priority becomes High.";
+        }
+
+        return "If waiting time exceeds 2 hours the priority becomes Critical; if urgency score reaches 40+, priority rises to Medium.";
     }
 
     private static double CalculateHaversineDistance(double lat1, double lon1, double lat2, double lon2)

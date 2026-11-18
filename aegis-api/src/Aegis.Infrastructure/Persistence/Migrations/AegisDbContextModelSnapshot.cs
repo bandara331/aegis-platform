@@ -23,6 +23,54 @@ namespace Aegis.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Aegis.Domain.Entities.AiGovernanceConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<double>("ConfidenceThreshold")
+                        .HasColumnType("double precision")
+                        .HasColumnName("confidence_threshold");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<double>("FairnessDisparityThreshold")
+                        .HasColumnType("double precision")
+                        .HasColumnName("fairness_disparity_threshold");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("mode");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedById")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by_id");
+
+                    b.Property<string>("UpdatedReason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("updated_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ai_governance_configs");
+
+                    b.ToTable("ai_governance_configs", "aegis");
+                });
+
             modelBuilder.Entity("Aegis.Domain.Entities.AiRecommendation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -30,9 +78,18 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("BelowThreshold")
+                        .HasColumnType("boolean")
+                        .HasColumnName("below_threshold");
+
                     b.Property<double>("Confidence")
                         .HasColumnType("double precision")
                         .HasColumnName("confidence");
+
+                    b.Property<string>("CounterfactualNote")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("counterfactual_note");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -47,6 +104,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
+                    b.Property<bool>("IsShadow")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_shadow");
+
                     b.Property<string>("ModelName")
                         .IsRequired()
                         .HasColumnType("text")
@@ -60,6 +121,11 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("integer")
                         .HasColumnName("priority");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("prompt_version");
 
                     b.Property<string>("RationaleJson")
                         .IsRequired()
@@ -93,6 +159,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<bool>("AiTranslated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ai_translated");
 
                     b.Property<string>("Area")
                         .IsRequired()
@@ -139,9 +209,46 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("DetectedLanguage")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("detected_language");
+
+                    b.Property<DateTime?>("DistressAcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("distress_acknowledged_at");
+
+                    b.Property<string>("DistressAcknowledgedById")
+                        .HasColumnType("text")
+                        .HasColumnName("distress_acknowledged_by_id");
+
+                    b.Property<DateTime?>("DistressDetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("distress_detected_at");
+
+                    b.Property<bool>("DistressFlagged")
+                        .HasColumnType("boolean")
+                        .HasColumnName("distress_flagged");
+
+                    b.Property<string>("DistressLevel")
+                        .HasColumnType("text")
+                        .HasColumnName("distress_level");
+
+                    b.Property<string>("DistressReason")
+                        .HasColumnType("text")
+                        .HasColumnName("distress_reason");
+
                     b.Property<Guid?>("DuplicateOfId")
                         .HasColumnType("uuid")
                         .HasColumnName("duplicate_of_id");
+
+                    b.Property<string>("EnglishText")
+                        .HasColumnType("text")
+                        .HasColumnName("english_text");
+
+                    b.Property<string>("ExtractedJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("extracted_json");
 
                     b.Property<string>("FeedbackComment")
                         .HasColumnType("text")
@@ -164,6 +271,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("language");
 
+                    b.Property<double?>("LanguageConfidence")
+                        .HasColumnType("double precision")
+                        .HasColumnName("language_confidence");
+
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision")
                         .HasColumnName("latitude");
@@ -171,6 +282,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Property<double>("Longitude")
                         .HasColumnType("double precision")
                         .HasColumnName("longitude");
+
+                    b.Property<string>("NormalizedText")
+                        .HasColumnType("text")
+                        .HasColumnName("normalized_text");
 
                     b.Property<int>("PeopleCount")
                         .HasColumnType("integer")
@@ -506,6 +621,97 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.ToTable("decisions", "aegis");
                 });
 
+            modelBuilder.Entity("Aegis.Domain.Entities.DispatchPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at_utc");
+
+                    b.Property<string>("ApprovedById")
+                        .HasColumnType("text")
+                        .HasColumnName("approved_by_id");
+
+                    b.Property<double>("BaselineDurationMinutes")
+                        .HasColumnType("double precision")
+                        .HasColumnName("baseline_duration_minutes");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedById")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("explanation");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsEstimated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_estimated");
+
+                    b.Property<double>("MinutesSaved")
+                        .HasColumnType("double precision")
+                        .HasColumnName("minutes_saved");
+
+                    b.Property<bool>("RequiresSecondApprover")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requires_second_approver");
+
+                    b.Property<string>("RoutesJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("routes_json");
+
+                    b.Property<string>("RoutingSource")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("routing_source");
+
+                    b.Property<string>("SecondApproverId")
+                        .HasColumnType("text")
+                        .HasColumnName("second_approver_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<double>("TotalDistanceKm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("total_distance_km");
+
+                    b.Property<double>("TotalDurationMinutes")
+                        .HasColumnType("double precision")
+                        .HasColumnName("total_duration_minutes");
+
+                    b.Property<string>("UnservedJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("unserved_json");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dispatch_plans");
+
+                    b.ToTable("dispatch_plans", "aegis");
+                });
+
             modelBuilder.Entity("Aegis.Domain.Entities.District", b =>
                 {
                     b.Property<Guid>("Id")
@@ -543,6 +749,96 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_districts_name");
 
                     b.ToTable("districts", "aegis");
+                });
+
+            modelBuilder.Entity("Aegis.Domain.Entities.DistrictRiskSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AdvisoryNotice")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("advisory_notice");
+
+                    b.Property<DateTime>("ComputedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("computed_at_utc");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("DataUpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_updated_at_utc");
+
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("district");
+
+                    b.Property<string>("FactorsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("factors_json");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsStale")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_stale");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
+                    b.Property<string>("OfficialAlertLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("official_alert_level");
+
+                    b.Property<int>("OpenRequestsCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("open_requests_count");
+
+                    b.Property<double?>("Rainfall24hMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall24h_mm");
+
+                    b.Property<double?>("Rainfall72hMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall72h_mm");
+
+                    b.Property<string>("RiskLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("risk_level");
+
+                    b.Property<double>("RiskScore")
+                        .HasColumnType("double precision")
+                        .HasColumnName("risk_score");
+
+                    b.Property<double?>("RiverDischargeM3s")
+                        .HasColumnType("double precision")
+                        .HasColumnName("river_discharge_m3s");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_district_risk_snapshots");
+
+                    b.ToTable("district_risk_snapshots", "aegis");
                 });
 
             modelBuilder.Entity("Aegis.Domain.Entities.Donation", b =>
@@ -1513,6 +1809,63 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.ToTable("shelter_allocations", "aegis");
                 });
 
+            modelBuilder.Entity("Aegis.Domain.Entities.SituationReportDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentMarkdown")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content_markdown");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedById")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<bool>("IsAiAssisted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_ai_assisted");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<string>("PublishedById")
+                        .HasColumnType("text")
+                        .HasColumnName("published_by_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_situation_report_drafts");
+
+                    b.ToTable("situation_report_drafts", "aegis");
+                });
+
             modelBuilder.Entity("Aegis.Domain.Entities.StaffInvitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1578,6 +1931,163 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_staff_invitations_token_hash");
 
                     b.ToTable("staff_invitations", "aegis");
+                });
+
+            modelBuilder.Entity("Aegis.Domain.Entities.StockForecastSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AlertTriggered")
+                        .HasColumnType("boolean")
+                        .HasColumnName("alert_triggered");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("ComputedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("computed_at_utc");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DataPointsCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("data_points_count");
+
+                    b.Property<string>("Depot")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("depot");
+
+                    b.Property<double?>("EstimatedHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("estimated_hours");
+
+                    b.Property<double>("EwmaHourlyRate")
+                        .HasColumnType("double precision")
+                        .HasColumnName("ewma_hourly_rate");
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("explanation");
+
+                    b.Property<bool>("HasEnoughData")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_enough_data");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("item_name");
+
+                    b.Property<double?>("MaxHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("max_hours");
+
+                    b.Property<double?>("MinHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("min_hours");
+
+                    b.Property<int>("QuantityAvailable")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity_available");
+
+                    b.Property<double>("RainfallMultiplier")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall_multiplier");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resource_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_forecast_snapshots");
+
+                    b.ToTable("stock_forecast_snapshots", "aegis");
+                });
+
+            modelBuilder.Entity("Aegis.Domain.Entities.Vehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AssignedDriverName")
+                        .HasColumnType("text")
+                        .HasColumnName("assigned_driver_name");
+
+                    b.Property<Guid?>("AssignedVolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_volunteer_id");
+
+                    b.Property<string>("Availability")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("availability");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("capacity");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<double>("CurrentLatitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("current_latitude");
+
+                    b.Property<double>("CurrentLongitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("current_longitude");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Skills")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("skills");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("vehicle_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vehicles");
+
+                    b.HasIndex("AssignedVolunteerId")
+                        .HasDatabaseName("ix_vehicles_assigned_volunteer_id");
+
+                    b.ToTable("vehicles", "aegis");
                 });
 
             modelBuilder.Entity("Aegis.Domain.Entities.Volunteer", b =>
@@ -1710,6 +2220,62 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_volunteer_assignments_volunteer_id");
 
                     b.ToTable("volunteer_assignments", "aegis");
+                });
+
+            modelBuilder.Entity("Aegis.Domain.Entities.WeatherSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("district");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<double?>("PrecipitationMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("precipitation_mm");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("summary");
+
+                    b.Property<double?>("TemperatureC")
+                        .HasColumnType("double precision")
+                        .HasColumnName("temperature_c");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<double?>("WindKph")
+                        .HasColumnType("double precision")
+                        .HasColumnName("wind_kph");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weather_snapshots");
+
+                    b.ToTable("weather_snapshots", "aegis");
                 });
 
             modelBuilder.Entity("Aegis.Infrastructure.Identity.ApplicationUser", b =>
@@ -2144,6 +2710,16 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Navigation("Request");
 
                     b.Navigation("Shelter");
+                });
+
+            modelBuilder.Entity("Aegis.Domain.Entities.Vehicle", b =>
+                {
+                    b.HasOne("Aegis.Domain.Entities.Volunteer", "AssignedVolunteer")
+                        .WithMany()
+                        .HasForeignKey("AssignedVolunteerId")
+                        .HasConstraintName("fk_vehicles_volunteers_assigned_volunteer_id");
+
+                    b.Navigation("AssignedVolunteer");
                 });
 
             modelBuilder.Entity("Aegis.Domain.Entities.VolunteerAssignment", b =>

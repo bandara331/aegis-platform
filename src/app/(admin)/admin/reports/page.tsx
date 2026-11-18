@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, EmptyState, ErrorState, PageHeader, StatCard } from "@/components/ui";
+import type { SituationReportDraftDto } from "@/lib/api/types";
 
 interface KpiReport {
   fromUtc: string;
@@ -36,6 +37,23 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [drafts, setDrafts] = useState<SituationReportDraftDto[]>([]);
+  const [activeDraft, setActiveDraft] = useState<SituationReportDraftDto | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftMsg, setDraftMsg] = useState<string | null>(null);
+
+  const loadDrafts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ops/ai/reports/drafts", { cache: "no-store" });
+      if (res.ok) {
+        const list = (await res.json()) as SituationReportDraftDto[];
+        setDrafts(Array.isArray(list) ? list : []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const loadReport = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -57,7 +75,70 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     void loadReport();
-  }, [loadReport]);
+    void loadDrafts();
+  }, [loadReport, loadDrafts]);
+
+  async function handleGenerateDraft() {
+    setDraftBusy(true);
+    setDraftMsg(null);
+    try {
+      const res = await fetch("/api/ops/ai/reports/daily-draft", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setDraftMsg(data.error || "Failed to generate draft.");
+      } else {
+        const d = data as SituationReportDraftDto;
+        setActiveDraft(d);
+        setDraftTitle(d.title);
+        setDraftContent(d.contentMarkdown);
+        await loadDrafts();
+      }
+    } catch {
+      setDraftMsg("Unable to reach AI reports endpoint.");
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!activeDraft) return;
+    setDraftBusy(true);
+    setDraftMsg(null);
+    try {
+      const res = await fetch(`/api/ops/ai/reports/drafts/${activeDraft.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: draftTitle, contentMarkdown: draftContent }),
+      });
+      const data = await res.json();
+      if (!res.ok) setDraftMsg(data.error || "Failed to save draft.");
+      else {
+        setActiveDraft(data as SituationReportDraftDto);
+        setDraftMsg("Draft saved.");
+        await loadDrafts();
+      }
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
+  async function handlePublishDraft() {
+    if (!activeDraft) return;
+    setDraftBusy(true);
+    setDraftMsg(null);
+    try {
+      const res = await fetch(`/api/ops/ai/reports/drafts/${activeDraft.id}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setDraftMsg(data.error || "Failed to publish.");
+      else {
+        setActiveDraft(data as SituationReportDraftDto);
+        setDraftMsg("Report approved and published.");
+        await loadDrafts();
+      }
+    } finally {
+      setDraftBusy(false);
+    }
+  }
 
   function exportCsv() {
     if (!report) return;
@@ -166,6 +247,78 @@ export default function AdminReportsPage() {
           </div>
         </>
       )}
+
+      {/* AI-Assisted Daily Situation Report Draft Editor */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+          <div>
+            <span className="tag tag-ai">AI-assisted draft</span>
+            <h3 style={{ margin: "6px 0 2px" }}>Daily Situation Report</h3>
+            <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+              Built strictly from database aggregates and stored weather snapshots. Humans edit, approve, and publish.
+            </p>
+          </div>
+          <Button type="button" onClick={handleGenerateDraft} disabled={draftBusy}>
+            {draftBusy ? "Working…" : "Generate Daily Draft"}
+          </Button>
+        </div>
+
+        {draftMsg && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(124,58,237,0.08)", color: "var(--violet)", fontSize: 13 }}>
+            {draftMsg}
+          </div>
+        )}
+
+        {activeDraft ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              type="text"
+              className="bento-input"
+              value={draftTitle}
+              disabled={activeDraft.status === "Published"}
+              onChange={(e) => setDraftTitle(e.target.value)}
+            />
+            <textarea
+              rows={12}
+              className="bento-input mono"
+              style={{ fontSize: 12.5, width: "100%" }}
+              value={draftContent}
+              disabled={activeDraft.status === "Published"}
+              onChange={(e) => setDraftContent(e.target.value)}
+            />
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span className="tag tag-muted">{activeDraft.status}</span>
+              {activeDraft.status !== "Published" && (
+                <>
+                  <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={draftBusy}>
+                    Save edits
+                  </Button>
+                  <Button type="button" onClick={handlePublishDraft} disabled={draftBusy}>
+                    Approve &amp; Publish
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            title="No draft selected"
+            description="Click 'Generate Daily Draft' to compile real database counts and stored weather snapshots."
+          />
+        )}
+
+        {drafts.length > 0 && (
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--border-card)", paddingTop: 12 }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Recent drafts &amp; published reports</div>
+            {drafts.map((d) => (
+              <div key={d.id} className="kv" style={{ cursor: "pointer" }} onClick={() => { setActiveDraft(d); setDraftTitle(d.title); setDraftContent(d.contentMarkdown); }}>
+                <span>{d.title}</span>
+                <span className="tag tag-muted">{d.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

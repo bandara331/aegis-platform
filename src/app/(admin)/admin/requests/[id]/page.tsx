@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRecommendationForRequest, getRequestById, getRequestDuplicates } from "@/lib/api";
+import { getAiStatus, getRecommendationForRequest, getRequestById, getRequestDuplicates } from "@/lib/api";
 import { Icon } from "@/components/icons/Icon";
 import { EmptyState, ErrorState } from "@/components/ui";
 import { RequestHeroDecision } from "./RequestHeroDecision";
@@ -19,9 +19,10 @@ export default async function AdminRequestDetailPage({ params }: { params: Promi
     );
   }
 
-  const [{ data: rec, error: recError }, { data: dups, error: dupError }] = await Promise.all([
+  const [{ data: rec, error: recError }, { data: dups, error: dupError }, { data: aiStatus }] = await Promise.all([
     getRecommendationForRequest(req.id),
     getRequestDuplicates(req.id),
+    getAiStatus(),
   ]);
 
   const decided = !rec || rec.status !== "Pending";
@@ -65,6 +66,24 @@ export default async function AdminRequestDetailPage({ params }: { params: Promi
         )
       )}
 
+      {aiStatus?.isPaused && (
+        <div
+          role="status"
+          style={{
+            marginTop: 14,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #F59E0B",
+            background: "#FFFBEB",
+            color: "#92400E",
+            fontSize: 13.5,
+            fontWeight: 600,
+          }}
+        >
+          AI paused — Kill switch is active. Requests are routed to ManualTriage for human assessment.
+        </div>
+      )}
+
       {req.rejectionReason && (
         <div className="sub-card" style={{ marginTop: 18 }}>
           <div className="sub-head"><h3>Rejection reason</h3></div>
@@ -83,14 +102,37 @@ export default async function AdminRequestDetailPage({ params }: { params: Promi
           <Row k="Email" v={req.contactEmail || "—"} />
           <Row k="People affected" v={String(req.peopleCount)} />
           <Row k="Vulnerable / medical" v={req.vulnerableFlags || "None declared"} />
-          <div className="sub-head" style={{ marginTop: 14 }}><h3>Message</h3></div>
-          <div className="msg-orig">{req.description}</div>
-          {req.language !== "en" && req.englishTranslation && (
-            <>
-              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>English translation</div>
-              <div className="msg-orig">{req.englishTranslation}</div>
-            </>
-          )}
+          <div className="sub-head" style={{ marginTop: 14 }}>
+            <h3>Message</h3>
+            {req.detectedLanguage && (
+              <span className="tag tag-muted">{req.detectedLanguage}</span>
+            )}
+            {(req.aiTranslated || (req.englishTranslation && req.englishTranslation !== req.description)) && (
+              <span className="tag tag-ai">
+                AI translated
+                {typeof req.languageConfidence === "number" ? ` · ${Math.round(req.languageConfidence * 100)}%` : ""}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: req.englishTranslation ? "repeat(auto-fit, minmax(200px, 1fr))" : "1fr" }}>
+            <div>
+              <div className="muted" style={{ fontSize: 11.5, marginBottom: 4 }}>Original</div>
+              <div className="msg-orig">{req.description}</div>
+              {req.normalizedText && req.normalizedText !== req.description && (
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
+                  Normalized: {req.normalizedText}
+                </div>
+              )}
+            </div>
+            {req.englishTranslation && (
+              <div>
+                <div className="muted" style={{ fontSize: 11.5, marginBottom: 4 }}>English</div>
+                <div className="msg-orig" style={{ borderColor: "rgba(124, 58, 237, 0.25)", background: "rgba(124, 58, 237, 0.04)" }}>
+                  {req.englishTranslation}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="sub-card">

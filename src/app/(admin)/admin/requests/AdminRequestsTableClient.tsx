@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
 import { Card, EmptyState } from "@/components/ui";
-import type { PagedRequestsResult, RequestDetail } from "@/lib/api";
+import type { NlSearchFilterDto, NlSearchResponseDto, PagedRequestsResult, RequestDetail } from "@/lib/api";
 
 const STATUS_OPTIONS = [
   "All",
@@ -70,6 +70,57 @@ export function AdminRequestsTableClient({
   const [district, setDistrict] = useState(initialQuery.district || "All");
   const [language, setLanguage] = useState(initialQuery.language || "All");
 
+  const [nlQuery, setNlQuery] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlFilters, setNlFilters] = useState<NlSearchFilterDto | null>(null);
+  const [nlItems, setNlItems] = useState<RequestDetail[] | null>(null);
+  const [nlError, setNlError] = useState<string | null>(null);
+
+  async function handleNlSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nlQuery.trim()) return;
+    setNlLoading(true);
+    setNlError(null);
+    try {
+      const res = await fetch("/api/ops/ai/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: nlQuery.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setNlError(data.error || data.message || `HTTP ${res.status}`);
+      } else {
+        const parsed = data as NlSearchResponseDto;
+        setNlFilters(parsed.filters);
+        setNlItems(parsed.items);
+      }
+    } catch {
+      setNlError("Unable to reach AI natural-language search.");
+    } finally {
+      setNlLoading(false);
+    }
+  }
+
+  function removeNlChip(key: keyof NlSearchFilterDto) {
+    if (!nlFilters) return;
+    const next = { ...nlFilters, [key]: null };
+    const hasAny = Object.values(next).some((v) => v !== null && v !== undefined && v !== "");
+    if (!hasAny) {
+      setNlFilters(null);
+      setNlItems(null);
+      return;
+    }
+    setNlFilters(next);
+    applyFilters({
+      status: next.status ?? undefined,
+      priority: next.priority ?? undefined,
+      district: next.district ?? undefined,
+      language: next.language ?? undefined,
+    });
+    setNlItems(null);
+  }
+
   function applyFilters(updates: Record<string, string | number | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
     const merged = {
@@ -116,6 +167,7 @@ export function AdminRequestsTableClient({
   }
 
   const { items, totalCount, page, pageSize, totalPages } = initialData;
+  const displayItems = nlItems ?? items;
   const startIdx = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, totalCount);
 
@@ -127,8 +179,74 @@ export function AdminRequestsTableClient({
     (initialQuery.language && initialQuery.language !== "All")
   );
 
+  const nlChipEntries = nlFilters
+    ? (Object.entries(nlFilters) as Array<[keyof NlSearchFilterDto, unknown]>).filter(
+        ([, v]) => v !== null && v !== undefined && v !== ""
+      )
+    : [];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Natural-Language Search Bar (AI Copilot) */}
+      <Card style={{ padding: "14px 20px", borderColor: "rgba(124, 58, 237, 0.25)" }}>
+        <form onSubmit={handleNlSearch} style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <span className="tag tag-ai">AI Search</span>
+          <input
+            type="text"
+            value={nlQuery}
+            onChange={(e) => setNlQuery(e.target.value)}
+            placeholder='Ask in English or සිංහල (e.g. "unassigned critical medical in Colombo last 24h")'
+            style={{
+              flex: 1,
+              minWidth: 240,
+              borderRadius: 10,
+              border: "1px solid rgba(124, 58, 237, 0.3)",
+              padding: "8px 12px",
+              fontSize: 13,
+            }}
+          />
+          <button
+            type="submit"
+            disabled={nlLoading}
+            className="btn btn-sm"
+            style={{ background: "var(--violet)", color: "#fff" }}
+          >
+            {nlLoading ? "Interpreting…" : "Ask AI Search"}
+          </button>
+          {nlItems && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setNlFilters(null);
+                setNlItems(null);
+                setNlQuery("");
+              }}
+            >
+              Clear AI Search
+            </button>
+          )}
+        </form>
+        {nlError && <div style={{ color: "#DC2626", fontSize: 12.5, marginTop: 8 }}>{nlError}</div>}
+        {nlChipEntries.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 11.5 }}>Interpreted filters:</span>
+            {nlChipEntries.map(([k, v]) => (
+              <button
+                key={String(k)}
+                type="button"
+                onClick={() => removeNlChip(k)}
+                className="tag tag-ai"
+                style={{ cursor: "pointer", border: "1px solid rgba(124,58,237,0.35)" }}
+                title="Remove filter"
+              >
+                {String(k)}: {String(v)} &times;
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+
       {/* Search and Filters Toolbar */}
       <Card style={{ padding: "16px 20px" }}>
         <form
@@ -264,7 +382,7 @@ export function AdminRequestsTableClient({
       </Card>
 
       {/* Requests Table */}
-      {items.length === 0 ? (
+      {displayItems.length === 0 ? (
         <EmptyState
           title={hasActiveFilters ? "No requests match your filter criteria" : "No assistance requests"}
           description={
@@ -303,7 +421,7 @@ export function AdminRequestsTableClient({
                 </tr>
               </thead>
               <tbody>
-                {items.map((r: RequestDetail) => {
+                {displayItems.map((r: RequestDetail) => {
                   const confPct = Math.round(
                     r.aiConfidence !== undefined && r.aiConfidence !== null
                       ? (r.aiConfidence <= 1 ? r.aiConfidence * 100 : r.aiConfidence)
