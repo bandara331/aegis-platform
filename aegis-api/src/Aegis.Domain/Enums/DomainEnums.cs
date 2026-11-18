@@ -37,7 +37,9 @@ public enum RequestStatus
     DuplicateCheck = 6,
     ManualTriage = 7,
     Rejected = 8,
-    Closed = 9
+    Closed = 9,
+    Approved = 10,
+    Cancelled = 11
 }
 
 public enum RequestPriority

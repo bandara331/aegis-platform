@@ -269,6 +269,15 @@ public class RequestsController : ControllerBase
         _validator = validator;
     }
 
+    /// <summary>Returns prefilled citizen contact details (mobile, email, language) for /request.</summary>
+    [HttpGet("me-contact")]
+    public async Task<IActionResult> GetCitizenContact(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(UserId)) return Unauthorized();
+        var profile = await _requests.GetCitizenProfileAsync(UserId, ct);
+        return profile == null ? NotFound() : Ok(profile);
+    }
+
     [HttpPost]
     [EnableRateLimiting("requests")]
     public async Task<IActionResult> Create(
@@ -284,19 +293,107 @@ public class RequestsController : ControllerBase
             return ValidationProblem(ms);
         }
 
+        // Possible duplicate warning if the same citizen has a similar open request nearby
+        if (!dto.ConfirmDuplicate)
+        {
+            var duplicateWarning = await _requests.CheckCitizenDuplicateAsync(dto, UserId, ct);
+            if (duplicateWarning != null)
+            {
+                return Conflict(new
+                {
+                    code = "POSSIBLE_DUPLICATE",
+                    detail = duplicateWarning.Message,
+                    duplicateWarning
+                });
+            }
+        }
+
         var created = await _requests.CreateRequestAsync(dto, UserId, idempotencyKey, ct);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        return Created($"/api/v1/requests/{created.Id}", created);
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status, [FromQuery] string? priority, CancellationToken ct)
-        => Ok(await _requests.GetAllAsync(status, priority, UserId, PrimaryRole, ct));
-
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] string? priority,
+        [FromQuery] string? district,
+        [FromQuery] string? language,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken ct)
     {
-        var result = await _requests.GetByIdAsync(id, UserId, PrimaryRole, ct);
+        if (page.HasValue)
+        {
+            return Ok(await _requests.GetPagedAsync(search, status, priority, district, language, page.Value, pageSize ?? 10, UserId, PrimaryRole, ct));
+        }
+        return Ok(await _requests.GetAllAsync(status, priority, UserId, PrimaryRole, ct));
+    }
+
+    [HttpGet("{idOrTracking}")]
+    public async Task<IActionResult> GetById(string idOrTracking, CancellationToken ct)
+    {
+        var result = await _requests.GetByIdOrTrackingAsync(idOrTracking, UserId, PrimaryRole, ct);
         return result == null ? NotFound() : Ok(result);
+    }
+
+    [HttpGet("{idOrTracking}/messages")]
+    public async Task<IActionResult> GetMessages(string idOrTracking, CancellationToken ct)
+    {
+        return Ok(await _requests.GetMessagesAsync(idOrTracking, UserId, PrimaryRole, ct));
+    }
+
+    [HttpPost("{idOrTracking}/messages")]
+    public async Task<IActionResult> SendMessage(string idOrTracking, [FromBody] SendChatMessageDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(UserId)) return Unauthorized();
+        var senderName = User.FindFirstValue("name") ?? User.FindFirstValue(ClaimTypes.Name) ?? (PrimaryRole == AegisRoles.Citizen ? "Citizen" : "Coordinator");
+        var result = await _requests.SendMessageAsync(idOrTracking, dto.MessageText, UserId, PrimaryRole, senderName, ct);
+        return result.IsFailure
+            ? BadRequest(new ProblemDetails { Status = 400, Title = "Failed to send message", Detail = result.Error })
+            : Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/duplicates/keep-separate")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> KeepSeparate(Guid id, [FromBody] KeepSeparateDuplicateDto dto, CancellationToken ct)
+    {
+        var actorId = UserId ?? "staff";
+        var result = await _requests.KeepSeparateDuplicateAsync(id, dto.CandidateRequestId, dto.Notes, actorId, PrimaryRole, ct);
+        return result.IsFailure
+            ? BadRequest(new ProblemDetails { Status = 400, Title = "Cannot mark as separate", Detail = result.Error })
+            : Ok(new { success = true });
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id, [FromBody] CancelRequestDto? dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(UserId)) return Unauthorized();
+        var result = await _requests.CancelRequestAsync(id, dto?.Reason, UserId, ct);
+        return result.IsFailure
+            ? BadRequest(new ProblemDetails { Status = 400, Title = "Cannot cancel request", Detail = result.Error })
+            : Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/feedback")]
+    public async Task<IActionResult> SubmitFeedback(Guid id, [FromBody] SubmitFeedbackDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(UserId)) return Unauthorized();
+        var result = await _requests.SubmitFeedbackAsync(id, dto, UserId, ct);
+        return result.IsFailure
+            ? BadRequest(new ProblemDetails { Status = 400, Title = "Cannot submit feedback", Detail = result.Error })
+            : Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/status")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateRequestStatusDto dto, CancellationToken ct)
+    {
+        var actorId = UserId ?? "staff";
+        var result = await _requests.UpdateStatusAsync(id, dto, actorId, PrimaryRole, ct);
+        return result.IsFailure
+            ? BadRequest(new ProblemDetails { Status = 400, Title = "Status update failed", Detail = result.Error })
+            : Ok(result.Value);
     }
 
     private string? UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -342,6 +439,13 @@ public class AiController : ControllerBase
     {
         _decisions = decisions;
         _validator = validator;
+    }
+
+    [HttpGet("recommendations/by-request/{requestId:guid}")]
+    public async Task<IActionResult> ForRequest(Guid requestId, CancellationToken ct)
+    {
+        var rec = await _decisions.GetLatestForRequestAsync(requestId, ct);
+        return rec == null ? NotFound() : Ok(rec);
     }
 
     [HttpGet("recommendations")]

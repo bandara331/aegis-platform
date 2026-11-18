@@ -52,10 +52,10 @@ public class DecisionService : IDecisionService
             throw new InvalidOperationException($"Invalid action '{dto.Action}'. Must be Approve, Modify, Reject, or Defer.");
         }
 
-        // Rule 1: Justification required for Modify and Reject
+        // Rule 1: Justification required for Modify and Reject (Edit action maps to Modify)
         if ((action == DecisionAction.Modify || action == DecisionAction.Reject) && string.IsNullOrWhiteSpace(dto.Justification))
         {
-            throw new InvalidOperationException("A justification is mandatory when modifying or rejecting an AI recommendation.");
+            throw new InvalidOperationException("A justification is mandatory when editing or rejecting an AI recommendation.");
         }
 
         // Rule 2: Critical actions require a second, different authorised approver
@@ -86,12 +86,34 @@ public class DecisionService : IDecisionService
             IsCriticalAction = isCritical
         };
 
+        var prevStatusLabel = RequestService.FormatCitizenStatus(recommendation.Request.Status);
+
         // State Transition: AI advises, humans decide!
         switch (action)
         {
             case DecisionAction.Approve:
                 recommendation.Status = RecommendationStatus.Approved;
                 recommendation.Request.Status = RequestStatus.Assigned;
+                _context.RequestHistories.Add(new RequestHistory
+                {
+                    RequestId = recommendation.Request.Id,
+                    FromStatus = prevStatusLabel,
+                    ToStatus = "Approved",
+                    ChangedById = decidedById,
+                    Notes = string.IsNullOrWhiteSpace(decision.Justification)
+                        ? "Approved by coordinator."
+                        : decision.Justification,
+                    CreatedAt = DateTime.UtcNow
+                });
+                _context.RequestHistories.Add(new RequestHistory
+                {
+                    RequestId = recommendation.Request.Id,
+                    FromStatus = "Approved",
+                    ToStatus = "Assigned",
+                    ChangedById = decidedById,
+                    Notes = "Assigned to field dispatch queue following coordinator approval.",
+                    CreatedAt = DateTime.UtcNow
+                });
                 break;
             case DecisionAction.Modify:
                 recommendation.Status = RecommendationStatus.Modified;
@@ -100,21 +122,87 @@ public class DecisionService : IDecisionService
                     recommendation.Request.Priority = pri;
                 }
                 recommendation.Request.Status = RequestStatus.Assigned;
+                _context.RequestHistories.Add(new RequestHistory
+                {
+                    RequestId = recommendation.Request.Id,
+                    FromStatus = prevStatusLabel,
+                    ToStatus = "Assigned",
+                    ChangedById = decidedById,
+                    Notes = decision.Justification,
+                    CreatedAt = DateTime.UtcNow
+                });
                 break;
             case DecisionAction.Reject:
                 recommendation.Status = RecommendationStatus.Rejected;
                 recommendation.Request.Status = RequestStatus.Rejected;
+                recommendation.Request.RejectionReason = decision.Justification;
+                _context.RequestHistories.Add(new RequestHistory
+                {
+                    RequestId = recommendation.Request.Id,
+                    FromStatus = prevStatusLabel,
+                    ToStatus = "Rejected",
+                    ChangedById = decidedById,
+                    Notes = decision.Justification,
+                    CreatedAt = DateTime.UtcNow
+                });
                 break;
             case DecisionAction.Defer:
                 recommendation.Status = RecommendationStatus.Deferred;
                 recommendation.Request.Status = RequestStatus.ManualTriage;
+                _context.RequestHistories.Add(new RequestHistory
+                {
+                    RequestId = recommendation.Request.Id,
+                    FromStatus = prevStatusLabel,
+                    ToStatus = "Under review",
+                    ChangedById = decidedById,
+                    Notes = string.IsNullOrWhiteSpace(decision.Justification)
+                        ? "Deferred for manual coordinator triage."
+                        : decision.Justification,
+                    CreatedAt = DateTime.UtcNow
+                });
                 break;
         }
 
+        // Automatic system message in the chat conversation
+        var chatMsgText = action switch
+        {
+            DecisionAction.Approve => "System: Your assistance request was approved by the coordinator and assigned for field relief dispatch.",
+            DecisionAction.Reject => $"System: Request reviewed by coordinator. Outcome: Not approved. Reason: {decision.Justification}",
+            DecisionAction.Modify => $"System: Coordinator edited response plan: {decision.Justification}. Priority set to {recommendation.Request.Priority}.",
+            DecisionAction.Defer => "System: Request deferred for secondary senior coordinator triage.",
+            _ => $"System: Decision recorded: {action}."
+        };
+
+        _context.RequestHistories.Add(new RequestHistory
+        {
+            RequestId = recommendation.Request.Id,
+            FromStatus = "Chat",
+            ToStatus = "Chat",
+            ChangedById = "System",
+            Notes = chatMsgText,
+            CreatedAt = DateTime.UtcNow
+        });
+
         _context.Decisions.Add(decision);
 
+        // Resolve citizen email from request ContactEmail or Users table
+        var recipientEmail = recommendation.Request.ContactEmail;
+        if (string.IsNullOrWhiteSpace(recipientEmail) && !string.IsNullOrWhiteSpace(recommendation.Request.CitizenId))
+        {
+            var user = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == recommendation.Request.CitizenId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(user?.Email))
+            {
+                recipientEmail = user.Email!;
+            }
+        }
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+        {
+            recipientEmail = recommendation.Request.CitizenId ?? "citizen@aegis.local";
+        }
+
         // Outbox Pattern: queue localized decision notification in the same transaction
-        var outbox = NotificationFactory.CreateDecisionNotification(recommendation.Request, decision, recommendation.Request.CitizenId ?? "citizen@aegis.local");
+        var outbox = NotificationFactory.CreateDecisionNotification(recommendation.Request, decision, recipientEmail);
         if (!await _context.NotificationOutboxes.AnyAsync(n => n.IdempotencyKey == outbox.IdempotencyKey, cancellationToken))
         {
             _context.NotificationOutboxes.Add(outbox);
@@ -133,7 +221,9 @@ public class DecisionService : IDecisionService
             {
                 recommendationId = recommendation.Id,
                 requestTrackingNumber = recommendation.Request.TrackingNumber,
-                action = action.ToString(),
+                aiRecommendation = recommendation.Priority.ToString(),
+                confidence = recommendation.Confidence,
+                humanAction = action.ToString(),
                 isCritical,
                 secondApproverId = decision.SecondApproverId,
                 justification = decision.Justification
@@ -154,6 +244,18 @@ public class DecisionService : IDecisionService
             recommendation.Request.Status.ToString(),
             $"Decision '{action}' successfully recorded and sealed in the cryptographic audit chain."
         );
+    }
+
+    public async Task<AiRecommendationDto?> GetLatestForRequestAsync(Guid requestId, CancellationToken cancellationToken = default)
+    {
+        var r = await _context.AiRecommendations
+            .Include(x => x.Request)
+            .Where(x => x.RequestId == requestId)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (r == null) return null;
+        return new AiRecommendationDto(r.Id, r.RequestId, r.Request?.TrackingNumber ?? "UNKNOWN", r.ModelName, r.ModelVersion,
+            r.Priority.ToString(), r.Confidence, r.RationaleJson, r.FeatureScoresJson, r.Status.ToString(), r.CreatedAt);
     }
 
     public async Task<IReadOnlyList<AiRecommendationDto>> GetPendingRecommendationsAsync(CancellationToken cancellationToken = default)

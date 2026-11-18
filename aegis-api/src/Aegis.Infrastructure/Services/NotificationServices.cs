@@ -77,6 +77,8 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
             message.Body = builder.ToMessageBody();
 
             using var client = new SmtpClient();
+            client.CheckCertificateRevocation = false;
+            client.ServerCertificateValidationCallback = (_, _, _, _) => true;
             await client.ConnectAsync(host, port, SecureSocketOptions.StartTlsWhenAvailable, cancellationToken);
             if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
             {
@@ -170,7 +172,7 @@ public class NotificationOutboxWorker : BackgroundService
 
         var now = DateTime.UtcNow;
         var pending = await db.NotificationOutboxes
-            .Where(n => n.Status == NotificationStatus.Pending && (n.NextAttemptAt == null || n.NextAttemptAt <= now))
+            .Where(n => n.Status == NotificationStatus.Pending && (n.NextAttemptAt == null || n.NextAttemptAt <= now || n.Attempts <= 2))
             .OrderBy(n => n.CreatedAt)
             .Take(20)
             .ToListAsync(cancellationToken);

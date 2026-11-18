@@ -10,21 +10,12 @@ export interface StatCardProps {
 
 export function StatCard({ label, value, note, tone = "default" }: StatCardProps) {
   return (
-    <Card interactive>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>{label}</span>
+    <Card interactive style={{ padding: "18px 20px", borderRadius: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "13px", color: "var(--muted)" }}>{label}</span>
         {note && <Tag tone={tone}>{note}</Tag>}
       </div>
-      <div
-        className="mono"
-        style={{
-          fontSize: "34px",
-          fontWeight: 700,
-          letterSpacing: "-0.03em",
-          color: "var(--ink)",
-          lineHeight: 1.15,
-        }}
-      >
+      <div style={{ fontSize: "38px", fontWeight: 600, letterSpacing: "-0.04em", margin: "6px 0 0", lineHeight: 1.1 }}>
         {value}
       </div>
     </Card>

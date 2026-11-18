@@ -10,3 +10,4 @@
   Fonts: Bricolage Grotesque (display), Geist (UI), JetBrains Mono (data).
 - Accessibility: visible focus, 44px touch targets, `prefers-reduced-motion` respected.
 - Before finishing any task run `npm run typecheck` and `npm run build`, and fix errors.
+

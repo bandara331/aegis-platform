@@ -1,96 +1,179 @@
 import Link from "next/link";
 import { getPublicStats } from "@/lib/api";
-import { Button, Card, StatCard, Tag } from "@/components/ui";
 
-export default async function PublicHomePage() {
+const STEPS = ["Ask", "Verify", "Decide", "Dispatch", "Record"];
+const ROLES = ["Citizens", "Coordinators", "Case managers", "Logistics", "Shelters", "Volunteers", "Donors", "Partners"];
+
+export default async function LandingPage() {
   const { data: stats } = await getPublicStats();
 
-  const liveMetrics = stats
+  // Only real public aggregates from GET /api/v1/public/stats; hidden when zero.
+  const live = stats
     ? [
-        { label: "Resolved requests", value: stats.resolvedRequestsCount, note: "Verified closed" },
-        { label: "Active crises", value: stats.activeCrisesCount, note: "Live response" },
-        { label: "Open shelters", value: stats.openSheltersCount, note: "Registered" },
-        { label: "People sheltered", value: stats.shelteredPeopleCount, note: "Current occupancy" },
+        { label: "Requests resolved", value: stats.resolvedRequestsCount },
+        { label: "Active crises", value: stats.activeCrisesCount },
+        { label: "Shelters open", value: stats.openSheltersCount },
+        { label: "People sheltered", value: stats.shelteredPeopleCount },
       ].filter((m) => m.value > 0)
     : [];
 
   return (
-    <div style={{ display: "grid", gap: "24px" }}>
-      <Card style={{ padding: "40px 32px" }}>
-        <div style={{ marginBottom: "14px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <Tag tone="accent" pulse>
-            HUMANITARIAN COORDINATION PLATFORM
-          </Tag>
-          <Tag tone="ai">AI-ASSISTED TRIAGE</Tag>
-        </div>
-        <h1
-          style={{
-            margin: "0 0 14px",
-            fontSize: "clamp(32px, 4.5vw, 52px)",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            lineHeight: 1.08,
-            color: "var(--ink)",
-            maxWidth: "780px",
-          }}
-        >
-          Every emergency request seen, verified, dispatched, and cryptographically audited.
-        </h1>
-        <p style={{ margin: "0 0 28px", fontSize: "16px", color: "var(--muted)", maxWidth: "660px" }}>
-          One shared operational picture where citizens report needs in English, Sinhala, or Tamil, AI scores urgency and explains its reasoning, and named human coordinators make every critical decision.
-        </p>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <Link href="/register" style={{ textDecoration: "none" }}>
-            <Button variant="primary">Request Emergency Aid</Button>
-          </Link>
-          <Link href="/alerts" style={{ textDecoration: "none" }}>
-            <Button variant="secondary">View Public Alerts</Button>
-          </Link>
-          <Link href="/staff/login" style={{ textDecoration: "none" }}>
-            <Button variant="ghost">Staff Operations Sign-In →</Button>
-          </Link>
-        </div>
-      </Card>
+    <div className="lp">
+      <i className="lp-bb lp-b1" aria-hidden="true" />
+      <i className="lp-bb lp-b2" aria-hidden="true" />
+      <i className="lp-bb lp-b3" aria-hidden="true" />
 
-      {/* Public aggregates from GET /api/v1/public/stats — hidden when zero */}
-      {liveMetrics.length > 0 && (
-        <section aria-label="Live public statistics" className="bento-grid cols-4">
-          {liveMetrics.map((m) => (
-            <StatCard key={m.label} label={m.label} value={m.value} note={m.note} tone="success" />
+      <header className="lp-hero">
+        <div className="lp-bdg">
+          <i className="lp-dot" />
+          Built for Sri Lanka · English · සිංහල · தமிழ்
+        </div>
+        <h1 className="lp-h1">
+          Relief that is{" "}
+          <span className="cyc">
+            <span>
+              <b>seen.</b>
+              <b>verified.</b>
+              <b>dispatched.</b>
+              <b>answered.</b>
+              <b>seen.</b>
+            </span>
+          </span>
+        </h1>
+        <p className="lp-lead">
+          One live map and one chat for families, coordinators and volunteers. AI suggests, a real person decides, and every step is on the record.
+        </p>
+        <div className="lp-ctas">
+          <Link className="lbtn cor" href="/register">Request help now</Link>
+          <Link className="lbtn dk" href="/staff/login">Staff sign in</Link>
+        </div>
+      </header>
+
+      {live.length > 0 && (
+        <section
+          aria-label="Live public statistics"
+          className="kpis"
+          style={{ position: "relative", zIndex: 2, maxWidth: "1208px", margin: "0 auto 16px", padding: "0 16px" }}
+        >
+          {live.map((m) => (
+            <div className="kpi" key={m.label}>
+              <span>{m.label}</span>
+              <b>{m.value}</b>
+            </div>
           ))}
         </section>
       )}
 
-      <section className="bento-grid cols-3">
-        <Card interactive>
-          <Tag tone="accent">01 · PRIVACY &amp; IDENTITY</Tag>
-          <h2 style={{ margin: "14px 0 8px", fontSize: "20px", fontWeight: 700 }}>
-            AES-256-GCM Encrypted NIC
-          </h2>
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--muted)" }}>
-            Citizen National Identity Card numbers are encrypted at rest, indexed via HMAC-SHA256 for deduplication, masked on screen, and never transmitted to any AI provider.
-          </p>
-        </Card>
+      <section className="lp-bento" aria-label="Product overview">
+        {/* Live map tile (structure only; pins appear from real data inside the app) */}
+        <div className="lp-t lp-a">
+          <svg className="lp-map" viewBox="0 0 700 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Live map with a sweeping radar">
+            <rect width="700" height="600" fill="#0C1230" />
+            <path d="M0 100H700M0 220H700M0 340H700M0 460H700M0 580H700M110 0V600M250 0V600M390 0V600M530 0V600" stroke="#1A2350" strokeWidth="2" />
+            <path d="M-10 430 C130 370 240 460 370 350 S570 270 710 190" fill="none" stroke="#1D3C8F" strokeWidth="30" strokeLinecap="round" />
+            <path d="M90 120 L450 90 L570 250 L410 450 L130 410Z" fill="rgba(255,201,74,.07)" stroke="#FFC94A" strokeDasharray="8 8" strokeWidth="1.6" />
+          </svg>
+          <div className="lp-radar" aria-hidden="true" />
+          <div className="lp-live"><i />Live map · requests appear as they arrive</div>
+          <div className="lp-legend">
+            <span>● Critical</span>
+            <span>● Needs review</span>
+            <span>● Safe shelter</span>
+          </div>
+        </div>
 
-        <Card interactive aiHighlight>
-          <Tag tone="ai">02 · AI ADVISORY OUTPUT</Tag>
-          <h2 style={{ margin: "14px 0 8px", fontSize: "20px", fontWeight: 700 }}>
-            Explainable Triage Scoring
-          </h2>
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--muted)" }}>
-            Multilingual heuristics evaluate urgency, household vulnerability, waiting time, and depot distance. AI never mutates state on its own—only a human decision changes a case.
-          </p>
-        </Card>
+        {/* AI tile (violet = AI only) */}
+        <div className="lp-t lp-b">
+          <span className="ai-chip mono">AI SUGGESTION</span>
+          <div className="lp-rr">
+            <svg width="88" height="88" viewBox="0 0 92 92" aria-hidden="true">
+              <circle cx="46" cy="46" r="38" fill="none" stroke="#fff" strokeWidth="9" />
+              <circle
+                className="ai-ring"
+                style={{ ["--c" as string]: 239, strokeDashoffset: 80 }}
+                cx="46" cy="46" r="38" fill="none" stroke="#7C3AED" strokeWidth="9" strokeLinecap="round" transform="rotate(-90 46 46)"
+              />
+            </svg>
+            <div style={{ fontSize: 19, lineHeight: 1.25, fontWeight: 600, letterSpacing: "-.02em" }}>
+              AI explains its reasoning. A person approves.
+            </div>
+          </div>
+          <div className="lp-chips">
+            <span>Urgency</span><span>Vulnerability</span><span>Waiting time</span><span>Distance</span><span>Supply fit</span>
+          </div>
+        </div>
 
-        <Card interactive>
-          <Tag tone="success">03 · TAMPER-EVIDENT AUDIT</Tag>
-          <h2 style={{ margin: "14px 0 8px", fontSize: "20px", fontWeight: 700 }}>
-            Two-Person Rule &amp; Hash Chain
-          </h2>
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--muted)" }}>
-            Critical medical dispatches and role changes require a second authorised approver. Every action is sealed in an append-only SHA-256 hash chain guarded by PostgreSQL triggers.
-          </p>
-        </Card>
+        {/* Chat tile */}
+        <div className="lp-t lp-c">
+          <div className="lp-lbl mono" style={{ color: "#0B6B4D" }}>Chat with the relief team</div>
+          <div className="lp-bub" />
+          <div className="lp-bub u" />
+          <div className="lp-ty" aria-hidden="true"><i /><i /><i /></div>
+        </div>
+
+        <div className="lp-t lp-d">
+          <div className="lp-lbl mono">Request in 3 steps</div>
+          <div className="lp-big">3</div>
+          <div className="lp-tl">What you need, where you are, send. Confirmation arrives by email.</div>
+          <div className="lp-arw" aria-hidden="true">→</div>
+        </div>
+
+        <div className="lp-t lp-e">
+          <div className="lp-lbl mono">Covering every district</div>
+          <div className="lp-big lp-cnt" style={{ ["--n" as string]: 25 }} />
+          <div className="lp-tl">districts across the island</div>
+        </div>
+
+        <div className="lp-t lp-f">
+          <div className="lp-env" aria-hidden="true"><i /></div>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em", lineHeight: 1.2 }}>Every update lands in your inbox.</div>
+          <div className="lp-tl" style={{ color: "#B7BDDA", fontWeight: 400 }}>Verification codes, approvals, messages.</div>
+        </div>
+
+        <div className="lp-t lp-g">
+          <div className="lp-lbl mono" style={{ color: "#CDEFF2" }}>Ask in your language</div>
+          <div className="lp-lc">
+            <div>
+              <b>Help</b><b>උදව්</b><b>உதவி</b><b>مساعدة</b><b>Aide</b><b>Ayuda</b><b>Help</b>
+            </div>
+          </div>
+          <div className="lp-tl" style={{ fontWeight: 400, color: "#CDEFF2" }}>Sinhala, Tamil and English.</div>
+        </div>
+
+        <div className="lp-t lp-h" id="how">
+          <h2 className="lp-h2">From a worried message to help at the door</h2>
+          <p className="lp-p">Follow every step of your request.</p>
+          <div className="lp-st">
+            {STEPS.map((s, i) => (
+              <div className="lp-sp" key={s}>
+                <b>{i + 1}</b>
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="lp-t lp-i">
+          <h2 className="lp-h2">A record nobody can quietly edit</h2>
+          <p className="lp-p" style={{ marginBottom: 14 }}>Each entry is linked to the one before.</p>
+          <div className="lp-hs"><b>AI suggested</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
+          <div className="lp-hs"><b>Staff decided</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
+          <div className="lp-hs"><b>Dispatched</b><span className="mono" style={{ color: "#585E7A" }}>linked entry</span></div>
+        </div>
+      </section>
+
+      <div className="lp-mq" aria-hidden="true">
+        <div>
+          {[...ROLES, ...ROLES].map((r, i) => (
+            <span key={`${r}-${i}`}>{r}</span>
+          ))}
+        </div>
+      </div>
+
+      <section className="lp-cta">
+        <h3>Ready before the next emergency.</h3>
+        <p>Create an account in under a minute, using only your NIC.</p>
+        <Link className="lbtn cor" href="/register">Create an account</Link>
       </section>
     </div>
   );

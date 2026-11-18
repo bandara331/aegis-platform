@@ -21,15 +21,23 @@ public class CreateRequestDtoValidator : AbstractValidator<CreateRequestDto>
 {
     public CreateRequestDtoValidator()
     {
-        RuleFor(x => x.CrisisId).NotEmpty().WithMessage("Crisis ID is required.");
-        RuleFor(x => x.Category).NotEmpty().MaximumLength(50).WithMessage("Category is required.");
+        RuleFor(x => x.Category).NotEmpty().MaximumLength(100).WithMessage("Category is required.");
         RuleFor(x => x.Description).NotEmpty().MinimumLength(5).MaximumLength(2000).WithMessage("Description must be between 5 and 2000 characters.");
-        RuleFor(x => x.Area).NotEmpty().MaximumLength(100).WithMessage("Area/Location name is required.");
+        RuleFor(x => x.Area).NotEmpty().MaximumLength(150).WithMessage("Area/Location name is required.");
         RuleFor(x => x.Latitude).InclusiveBetween(-90.0, 90.0).WithMessage("Latitude must be between -90 and 90.");
         RuleFor(x => x.Longitude).InclusiveBetween(-180.0, 180.0).WithMessage("Longitude must be between -180 and 180.");
         RuleFor(x => x.SelfReportedUrgency).InclusiveBetween(1, 5).WithMessage("Urgency must be rated 1 to 5.");
         RuleFor(x => x.PeopleCount).GreaterThan(0).WithMessage("People count must be at least 1.");
         RuleFor(x => x.ConsentGiven).Equal(true).WithMessage("Consent to process emergency request is required.");
+    }
+}
+
+public class SubmitFeedbackDtoValidator : AbstractValidator<SubmitFeedbackDto>
+{
+    public SubmitFeedbackDtoValidator()
+    {
+        RuleFor(x => x.Rating).InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5.");
+        RuleFor(x => x.Comment).MaximumLength(1000);
     }
 }
 

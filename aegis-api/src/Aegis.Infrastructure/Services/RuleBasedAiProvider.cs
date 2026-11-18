@@ -15,10 +15,12 @@ namespace Aegis.Infrastructure.Services;
 public class RuleBasedAiProvider : IAiProvider
 {
     private readonly AegisDbContext _context;
+    private readonly IRoutingService _routing;
     private readonly ILogger<RuleBasedAiProvider> _logger;
 
     public const string ModelName = "RuleBasedHeuristicEngine";
     public const string ModelVersion = "1.0.0";
+    public const string PromptVersion = "aegis-triage-v2.4";
 
     // Multilingual emergency keywords
     private static readonly HashSet<string> HighUrgencyKeywords = new(StringComparer.OrdinalIgnoreCase)
@@ -32,8 +34,14 @@ public class RuleBasedAiProvider : IAiProvider
     };
 
     public RuleBasedAiProvider(AegisDbContext context, ILogger<RuleBasedAiProvider> logger)
+        : this(context, new OsrmRoutingService(new HttpClient(), new Microsoft.Extensions.Configuration.ConfigurationManager(), Microsoft.Extensions.Logging.Abstractions.NullLogger<OsrmRoutingService>.Instance), logger)
+    {
+    }
+
+    public RuleBasedAiProvider(AegisDbContext context, IRoutingService routing, ILogger<RuleBasedAiProvider> logger)
     {
         _context = context;
+        _routing = routing;
         _logger = logger;
     }
 
@@ -101,11 +109,98 @@ public class RuleBasedAiProvider : IAiProvider
                          : urgencyScore >= 40 ? RequestPriority.Medium
                          : RequestPriority.Low;
 
+            // Find nearest real depot/resource or shelter for ETA
+            var reqLat = request.Latitude != 0 ? request.Latitude : 6.9271;
+            var reqLon = request.Longitude != 0 ? request.Longitude : 79.8612;
+
+            var nearestResource = await _context.Resources.AsNoTracking()
+                .Where(r => r.QuantityAvailable > 0)
+                .OrderBy(r => Math.Abs(r.Latitude - reqLat) + Math.Abs(r.Longitude - reqLon))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var nearestShelter = await _context.Shelters.AsNoTracking()
+                .Where(s => (s.Capacity - s.Occupancy) > 0)
+                .OrderBy(s => Math.Abs(s.Latitude - reqLat) + Math.Abs(s.Longitude - reqLon))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var nearestVol = await _context.Volunteers.AsNoTracking()
+                .Where(v => v.IsActive)
+                .OrderBy(v => Math.Abs(v.Latitude - reqLat) + Math.Abs(v.Longitude - reqLon))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var originLat = nearestResource?.Latitude ?? nearestShelter?.Latitude ?? nearestVol?.Latitude ?? (reqLat + 0.04);
+            var originLon = nearestResource?.Longitude ?? nearestShelter?.Longitude ?? nearestVol?.Longitude ?? (reqLon + 0.03);
+
+            var routeResult = await _routing.GetRouteAsync(originLat, originLon, reqLat, reqLon, cancellationToken);
+            var routeKm = routeResult.DistanceKm;
+            var routeMin = routeResult.DurationMinutes;
+            var routeSource = routeResult.Source;
+            var isEstimated = routeSource.Contains("Fallback", StringComparison.OrdinalIgnoreCase) ||
+                              routeSource.Contains("Haversine", StringComparison.OrdinalIgnoreCase);
+
+            var dispatchName = nearestResource != null
+                ? $"{nearestResource.ItemName} ({nearestResource.Depot})"
+                : (nearestShelter != null ? $"{nearestShelter.Name} (Shelter)" : (nearestVol != null ? $"{nearestVol.FullName} (Field Team)" : $"{request.Area} Emergency Operations Depot"));
+
+            var dispatchType = nearestResource != null ? "Resource Depot" : (nearestShelter != null ? "Shelter Facility" : "Field Volunteer");
+
+            // Compute distance score based on ETA
+            distanceScore = Math.Clamp(100 - (routeMin * 2), 20, 95);
+
+            var plainLanguageRationale = priority switch
+            {
+                RequestPriority.Critical => $"Immediate critical dispatch recommended: high-severity vulnerability markers detected in {request.Area} for {request.PeopleCount} people. Rapid intervention required.",
+                RequestPriority.High => $"High-priority dispatch recommended: substantial assistance need reported in {request.Area}. Dispatch {request.Category} relief unit promptly.",
+                RequestPriority.Medium => $"Standard priority allocation according to triage guidelines for {request.Category} assistance in {request.Area}.",
+                _ => $"Low-urgency queueing advised for scheduled non-urgent relief distribution in {request.Area}."
+            };
+
+            var suggestedAction = priority switch
+            {
+                RequestPriority.Critical => $"Approve immediate emergency dispatch of {request.Category} from {dispatchName}.",
+                RequestPriority.High => $"Approve priority dispatch of {request.Category} supplies to field responder team.",
+                RequestPriority.Medium => $"Approve standard allocation of {request.Category} from nearest depot.",
+                _ => "Schedule for batch community distribution."
+            };
+
+            var alternatives = new List<string>
+            {
+                nearestShelter != null
+                    ? $"Option B: Evacuate {request.PeopleCount} residents to {nearestShelter.Name} ({nearestShelter.Capacity - nearestShelter.Occupancy} spots open, {nearestShelter.District})"
+                    : $"Option B: Standby mobile emergency response unit ({request.Area})",
+                nearestVol != null
+                    ? $"Option C: Dispatch certified volunteer responder {nearestVol.FullName} ({nearestVol.Skills})"
+                    : $"Option C: Reroute secondary supply truck from adjacent district depot",
+                "Option D: Escalate to National Disaster Management Center (DMC) coordinator"
+            };
+
+            var whyThis = new
+            {
+                promptVersion = PromptVersion,
+                modelName = ModelName,
+                modelVersion = ModelVersion,
+                detectedSignals = detectedFactors.Count > 0 ? detectedFactors : new List<string> { "Standard baseline evaluation" },
+                reportedUrgency = $"{request.SelfReportedUrgency}/5 scale",
+                peopleAffected = request.PeopleCount,
+                vulnerabilities = string.IsNullOrWhiteSpace(request.VulnerableFlags) ? "None declared" : request.VulnerableFlags,
+                routingService = isEstimated ? "Google Routes / OSRM fallback (estimated)" : "OSRM live geometry routing"
+            };
+
             var rationale = new
             {
-                summary = priority == RequestPriority.Critical
-                    ? "Immediate priority dispatch recommended due to life-threat vulnerability factors."
-                    : "Standard priority allocation according to triage guidelines.",
+                summary = plainLanguageRationale,
+                suggestedAction,
+                suggestedDispatch = new
+                {
+                    type = dispatchType,
+                    name = dispatchName,
+                    distanceKm = routeKm,
+                    etaMinutes = routeMin,
+                    routeSource = isEstimated ? "OSRM / Google Routes fallback (estimated)" : "Google Routes / OSRM Live",
+                    isEstimated
+                },
+                alternatives,
+                whyThis,
                 factors = detectedFactors.Count > 0 ? detectedFactors : new List<string> { "Standard triage assessment" }
             };
 

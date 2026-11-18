@@ -3,13 +3,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SessionExpiredModal, Tag } from "@/components/ui";
+import { SessionExpiredModal } from "@/components/ui";
+import { Icon, LogoMark, type IconName } from "@/components/icons/Icon";
 
-const TABS = [
-  { href: "/request", label: "Request Aid", icon: "＋" },
-  { href: "/my-requests", label: "My Requests", icon: "☰" },
-  { href: "/assistant", label: "AI Assistant", icon: "✦" },
-  { href: "/profile", label: "Profile", icon: "◉" },
+const TABS: { href: string; label: string; icon: IconName }[] = [
+  { href: "/request", label: "Request", icon: "plus" },
+  { href: "/my-requests", label: "My requests", icon: "list" },
+  { href: "/assistant", label: "Assistant", icon: "spark" },
+  { href: "/profile", label: "Profile", icon: "user" },
 ];
 
 export default function CitizenLayout({ children }: { children: ReactNode }) {
@@ -17,56 +18,27 @@ export default function CitizenLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="citizen-shell">
-      <header
-        style={{
-          background: "var(--bg-card)",
-          borderBottom: "1px solid var(--border-card)",
-          padding: "12px 16px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "680px",
-            margin: "0 auto",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Link
-            href="/request"
-            style={{
-              textDecoration: "none",
-              color: "var(--ink)",
-              fontWeight: 800,
-              fontSize: "16px",
-              letterSpacing: "0.08em",
-            }}
-          >
-            AEGIS CITIZEN
-          </Link>
-          <Tag tone="accent">NIC ENCRYPTED</Tag>
+      <header className="citizen-bar">
+        <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", alignItems: "center", gap: 9 }}>
+          <LogoMark size={26} />
+          <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: "-.02em" }}>AEGIS</span>
         </div>
       </header>
 
       <main className="citizen-container">{children}</main>
 
-      <nav className="citizen-tabbar" aria-label="Citizen bottom navigation">
-        {TABS.map((tab) => {
-          const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`citizen-tab ${active ? "active" : ""}`.trim()}
-            >
-              <span aria-hidden="true" style={{ fontSize: "16px", lineHeight: 1 }}>
-                {tab.icon}
-              </span>
-              <span>{tab.label}</span>
-            </Link>
-          );
-        })}
+      <nav className="citizen-tabbar" aria-label="Citizen navigation">
+        <div className="citizen-tabs">
+          {TABS.map((tab) => {
+            const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+            return (
+              <Link key={tab.href} href={tab.href} className={`citizen-tab ${active ? "active" : ""}`.trim()} aria-current={active ? "page" : undefined}>
+                <span className="ic"><Icon name={tab.icon} size={18} /></span>
+                <span>{tab.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       <SessionExpiredModal loginHref="/login" />

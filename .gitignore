@@ -1,6 +1,7 @@
 # Next.js / Node
 node_modules
 .next
+.next-build
 out
 .env
 .env*.local

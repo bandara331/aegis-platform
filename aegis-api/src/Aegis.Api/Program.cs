@@ -210,6 +210,35 @@ if (args.Length > 0 && args[0].Equals("bootstrap-admin", StringComparison.Ordina
     Environment.Exit(exitCode);
     return;
 }
+if (args.Length > 0 && args[0].Equals("list-admins", StringComparison.OrdinalIgnoreCase))
+{
+    using var scope = app.Services.CreateScope();
+    var userMgr = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Aegis.Infrastructure.Identity.ApplicationUser>>();
+    var admins = await userMgr.GetUsersInRoleAsync(Aegis.Domain.Enums.AegisRoles.SystemAdmin);
+    foreach (var a in admins) Console.WriteLine($"ADMIN_ACCOUNT: Email={a.Email}, FullName={a.FullName}, Id={a.Id}");
+    Environment.Exit(0);
+    return;
+}
+if (args.Length > 0 && args[0].Equals("set-admin-password", StringComparison.OrdinalIgnoreCase))
+{
+    using var scope = app.Services.CreateScope();
+    var userMgr = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Aegis.Infrastructure.Identity.ApplicationUser>>();
+    var email = args.Length > 1 ? args[1] : "admin@aegis.lk";
+    var pass = args.Length > 2 ? args[2] : "Admin1234!";
+    var user = await userMgr.FindByEmailAsync(email);
+    if (user != null)
+    {
+        var token = await userMgr.GeneratePasswordResetTokenAsync(user);
+        var res = await userMgr.ResetPasswordAsync(user, token, pass);
+        Console.WriteLine($"ADMIN_RESET_RESULT: {res.Succeeded}");
+    }
+    else
+    {
+        Console.WriteLine($"ADMIN_NOT_FOUND: {email}");
+    }
+    Environment.Exit(0);
+    return;
+}
 
 // 8. Pipeline Middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();

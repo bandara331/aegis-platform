@@ -9,26 +9,27 @@ export interface EmptyStateProps {
 
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <Card style={{ textAlign: "center", padding: "48px 24px" }}>
+    <Card style={{ textAlign: "center", padding: "44px 24px" }}>
       <div
-        className="mono"
+        aria-hidden="true"
         style={{
-          fontSize: "11px",
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          color: "var(--muted)",
-          marginBottom: "8px",
-          textTransform: "uppercase",
+          width: "56px",
+          height: "56px",
+          margin: "0 auto 14px",
+          borderRadius: "18px",
+          background: "var(--teal-tint)",
+          color: "var(--teal)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        EMPTY STATE · 0 RECORDS
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8" />
+        </svg>
       </div>
-      <h2 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "var(--ink)" }}>
-        {title}
-      </h2>
-      <p style={{ margin: "0 auto 20px", fontSize: "14px", color: "var(--muted)", maxWidth: "460px" }}>
-        {description}
-      </p>
+      <h2 style={{ margin: "0 0 6px", fontSize: "19px", fontWeight: 600, letterSpacing: "-0.02em" }}>{title}</h2>
+      <p style={{ margin: "0 auto 18px", fontSize: "14px", color: "var(--muted)", maxWidth: "460px" }}>{description}</p>
       {action && <div style={{ display: "inline-flex" }}>{action}</div>}
     </Card>
   );

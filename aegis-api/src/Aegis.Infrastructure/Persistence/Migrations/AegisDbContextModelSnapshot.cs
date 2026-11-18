@@ -99,6 +99,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("area");
 
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_reason");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasColumnType("text")
@@ -112,11 +116,21 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("consent_given");
 
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("contact_email");
+
+                    b.Property<string>("ContactMobile")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("contact_mobile");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<Guid>("CrisisId")
+                    b.Property<Guid?>("CrisisId")
                         .HasColumnType("uuid")
                         .HasColumnName("crisis_id");
 
@@ -128,6 +142,18 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("DuplicateOfId")
                         .HasColumnType("uuid")
                         .HasColumnName("duplicate_of_id");
+
+                    b.Property<string>("FeedbackComment")
+                        .HasColumnType("text")
+                        .HasColumnName("feedback_comment");
+
+                    b.Property<int?>("FeedbackRating")
+                        .HasColumnType("integer")
+                        .HasColumnName("feedback_rating");
+
+                    b.Property<DateTime?>("FeedbackSubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("feedback_submitted_at");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -154,6 +180,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("priority");
 
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("text")
+                        .HasColumnName("rejection_reason");
+
                     b.Property<int>("SelfReportedUrgency")
                         .HasColumnType("integer")
                         .HasColumnName("self_reported_urgency");
@@ -174,6 +204,11 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Property<int>("UrgencyScore")
                         .HasColumnType("integer")
                         .HasColumnName("urgency_score");
+
+                    b.Property<string>("VulnerableFlags")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("vulnerable_flags");
 
                     b.HasKey("Id")
                         .HasName("pk_assistance_requests");
@@ -1884,8 +1919,6 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.HasOne("Aegis.Domain.Entities.Crisis", "Crisis")
                         .WithMany()
                         .HasForeignKey("CrisisId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_assistance_requests_crises_crisis_id");
 
                     b.HasOne("Aegis.Domain.Entities.AssistanceRequest", "DuplicateOf")

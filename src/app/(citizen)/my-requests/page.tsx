@@ -1,57 +1,44 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
-import { Button, Card, EmptyState, ErrorState, PageHeader, Tag } from "@/components/ui";
+import { getRequests } from "@/lib/api";
+import { EmptyState, ErrorState } from "@/components/ui";
 import { getDictionary } from "@/lib/i18n/dictionary";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
-
-interface CitizenCaseRow {
-  id: string;
-  trackingNumber: string;
-  category: string;
-  description: string;
-  area: string;
-  status: string;
-  priority: string;
+function humanStatus(raw: string): { label: string; tagClass: string } {
+  const s = raw.toLowerCase();
+  if (s === "submitted" || s === "new") return { label: "New", tagClass: "tag tag-teal" };
+  if (s === "needsreview" || s === "manualtriage" || s === "duplicatecheck" || s === "under review") {
+    return { label: "Under review", tagClass: "tag tag-sun" };
+  }
+  if (s === "approved") return { label: "Approved", tagClass: "tag tag-mint" };
+  if (s === "assigned") return { label: "Assigned", tagClass: "tag tag-teal" };
+  if (s === "dispatched" || s === "on the way") return { label: "On the way", tagClass: "tag tag-mint" };
+  if (s === "fulfilled" || s === "closed" || s === "completed") {
+    return { label: "Completed", tagClass: "tag tag-mint" };
+  }
+  if (s === "rejected") return { label: "Rejected", tagClass: "tag tag-coral" };
+  if (s === "cancelled") return { label: "Cancelled", tagClass: "tag tag-muted" };
+  return { label: raw, tagClass: "tag tag-muted" };
 }
 
 export default async function CitizenMyRequestsPage() {
   const dict = getDictionary("en");
-  const cookieStore = await cookies();
-  const token = cookieStore.get("aegis_token")?.value;
-
-  let rows: CitizenCaseRow[] = [];
-  let error: string | null = null;
-
-  if (token) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      if (res.ok) {
-        rows = (await res.json()) as CitizenCaseRow[];
-      } else {
-        error = `API returned HTTP ${res.status}`;
-      }
-    } catch {
-      error = "Unable to connect to AEGIS backend API.";
-    }
-  }
+  const { data: rows, error } = await getRequests();
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="MY ASSISTANCE REQUESTS"
-        eyebrowTone="accent"
-        title="Submitted Cases"
-        subtitle="Track triage status and coordinator messages for your own requests."
-        actions={
-          <Link href="/request" style={{ textDecoration: "none" }}>
-            <Button variant="primary">New Request</Button>
-          </Link>
-        }
-      />
+    <div style={{ display: "grid", gap: "14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <span className="eyebrow" style={{ color: "var(--teal)" }}>
+            MY ASSISTANCE REQUESTS
+          </span>
+          <h1 style={{ fontSize: "24px", fontWeight: 700, margin: "4px 0 0" }}>
+            Submitted cases
+          </h1>
+        </div>
+        <Link href="/request" className="btn btn-teal btn-sm" style={{ textDecoration: "none" }}>
+          + New request
+        </Link>
+      </div>
 
       {error ? (
         <ErrorState message={error} />
@@ -60,28 +47,60 @@ export default async function CitizenMyRequestsPage() {
           title="No submitted requests"
           description={dict.empty.noRequests}
           action={
-            <Link href="/request" style={{ textDecoration: "none" }}>
-              <Button variant="primary">Request Emergency Aid</Button>
+            <Link href="/request" className="btn btn-teal btn-sm" style={{ textDecoration: "none" }}>
+              Request emergency aid
             </Link>
           }
         />
       ) : (
-        <div className="bento-grid">
-          {rows.map((r) => (
-            <Card key={r.id} interactive>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <span className="mono" style={{ fontWeight: 700 }}>{r.trackingNumber}</span>
-                <Tag tone={r.priority === "Critical" ? "critical" : "accent"}>{r.status}</Tag>
-              </div>
-              <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "6px" }}>
-                {r.category} · {r.area}
-              </div>
-              <p style={{ margin: "0 0 12px", fontSize: "13px", color: "var(--muted)" }}>{r.description}</p>
-              <Link href={`/my-requests/${r.id}`} style={{ fontSize: "13px", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
-                View status &amp; coordinator chat →
+        <div style={{ display: "grid", gap: "12px" }}>
+          {rows.map((r) => {
+            const st = humanStatus(r.status);
+            return (
+              <Link
+                key={r.id}
+                href={`/my-requests/${r.id}`}
+                className="card"
+                style={{
+                  borderRadius: "22px",
+                  padding: "18px",
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "block",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span className="mono" style={{ fontWeight: 700, fontSize: "12.5px", color: "var(--teal)" }}>
+                    {r.trackingNumber}
+                  </span>
+                  <span className={st.tagClass}>{st.label}</span>
+                </div>
+                <div style={{ fontSize: "16px", fontWeight: 700, marginBottom: "4px" }}>
+                  {r.category} · {r.area}
+                </div>
+                <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--muted)", lineHeight: 1.5 }}>
+                  {r.description}
+                </p>
+                {r.rejectionReason && (
+                  <div
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "10px",
+                      background: "var(--coral-tint)",
+                      fontSize: "12px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <b>Staff reason:</b> {r.rejectionReason}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)" }}>
+                  <span>{r.peopleCount} {r.peopleCount === 1 ? "person" : "people"}</span>
+                  <span>View timeline &amp; details →</span>
+                </div>
               </Link>
-            </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

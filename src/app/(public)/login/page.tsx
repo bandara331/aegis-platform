@@ -35,7 +35,6 @@ export default function CitizenLoginPage() {
         return;
       }
 
-      // Citizen login redirects strictly to /request
       router.push("/request");
       router.refresh();
     } catch {
@@ -45,72 +44,41 @@ export default function CitizenLoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: "440px", margin: "24px auto" }}>
-      <Card>
-        <div style={{ marginBottom: "12px" }}>
-          <Tag tone="accent">CITIZEN PORTAL SIGN-IN</Tag>
+    <div style={{ maxWidth: 440, margin: "0 auto" }}>
+      <Card style={{ borderRadius: 36, padding: "30px 24px" }}>
+        <div style={{ marginBottom: 12 }}>
+          <Tag tone="accent">CITIZEN SIGN IN</Tag>
         </div>
-        <h1 style={{ margin: "0 0 6px", fontSize: "24px", fontWeight: 700 }}>Sign in to Citizen Portal</h1>
-        <p style={{ margin: "0 0 20px", fontSize: "14px", color: "var(--muted)" }}>
-          Submit emergency assistance requests and communicate with assigned coordinators.
+        <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 600, letterSpacing: "-.03em" }}>Welcome back</h1>
+        <p style={{ margin: "0 0 18px", fontSize: 14, color: "var(--muted)" }}>
+          Request help and follow your cases.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "14px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
           <div>
-            <label className="bento-label" htmlFor="citizen-email">EMAIL ADDRESS</label>
-            <input
-              id="citizen-email"
-              type="email"
-              required
-              className="bento-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
+            <label className="bento-label" htmlFor="citizen-email">Email</label>
+            <input id="citizen-email" type="email" required className="bento-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </div>
-
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label className="bento-label" htmlFor="citizen-password">PASSWORD</label>
-              <Link href="/forgot-password" style={{ fontSize: "12px", color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+              <label className="bento-label" htmlFor="citizen-password">Password</label>
+              <Link href="/forgot-password" style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none", fontWeight: 600 }}>
                 Forgot password?
               </Link>
             </div>
-            <input
-              id="citizen-password"
-              type="password"
-              required
-              className="bento-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+            <input id="citizen-password" type="password" required className="bento-input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           </div>
 
           {error && <Toast tone="critical">{error}</Toast>}
 
           <Button type="submit" fullWidth disabled={loading}>
-            {loading ? "Signing in…" : "Sign In"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
-        <div
-          style={{
-            marginTop: "20px",
-            paddingTop: "16px",
-            borderTop: "1px solid var(--border-card)",
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "13px",
-            color: "var(--muted)",
-          }}
-        >
-          <Link href="/register" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
-            Create citizen account
-          </Link>
-          <Link href="/staff/login" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>
-            Staff sign-in →
-          </Link>
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border-card)", display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+          <Link href="/register" style={{ color: "var(--teal)", textDecoration: "none", fontWeight: 600 }}>Create account</Link>
+          <Link href="/staff/login" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 600 }}>Staff sign in →</Link>
         </div>
       </Card>
     </div>

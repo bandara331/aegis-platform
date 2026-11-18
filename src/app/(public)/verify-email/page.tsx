@@ -31,9 +31,7 @@ function VerifyEmailInner() {
   }
 
   function handleKeyDown(idx: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace" && !digits[idx] && idx > 0) {
-      inputsRef.current[idx - 1]?.focus();
-    }
+    if (e.key === "Backspace" && !digits[idx] && idx > 0) inputsRef.current[idx - 1]?.focus();
   }
 
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
@@ -99,68 +97,64 @@ function VerifyEmailInner() {
     }
   }
 
+  const mm = String(Math.floor(cooldown / 60));
+  const ss = String(cooldown % 60).padStart(2, "0");
+
   return (
-    <div style={{ maxWidth: "460px", margin: "24px auto" }}>
-      <Card>
-        <div style={{ marginBottom: "12px" }}>
-          <Tag tone="accent">EMAIL OTP VERIFICATION</Tag>
+    <div style={{ maxWidth: 440, margin: "0 auto" }}>
+      <Card style={{ borderRadius: 36, padding: "30px 24px" }}>
+        <div style={{ marginBottom: 12 }}>
+          <Tag tone="accent">STEP 2 · VERIFY</Tag>
         </div>
-        <h1 style={{ margin: "0 0 6px", fontSize: "24px", fontWeight: 700 }}>Enter 6-digit verification code</h1>
-        <p style={{ margin: "0 0 20px", fontSize: "14px", color: "var(--muted)" }}>
-          Codes expire in 10 minutes and allow at most 5 verification attempts.
+        <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 600, letterSpacing: "-.03em" }}>Check your email</h1>
+        <p style={{ margin: "0 0 18px", fontSize: 14, color: "var(--muted)", lineHeight: 1.45 }}>
+          We sent a 6-digit code to your email address. It expires in 10 minutes.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
           <div>
-            <label className="bento-label" htmlFor="verify-email-input">EMAIL ADDRESS</label>
-            <input
-              id="verify-email-input"
-              type="email"
-              required
-              className="bento-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <label className="bento-label" htmlFor="verify-email-input">Email</label>
+            <input id="verify-email-input" type="email" required className="bento-input" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
 
-          <div>
-            <span className="bento-label">6-DIGIT OTP</span>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
-              {digits.map((d, idx) => (
-                <input
-                  key={idx}
-                  ref={(el) => { inputsRef.current[idx] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  aria-label={`Digit ${idx + 1}`}
-                  value={d}
-                  onChange={(e) => handleDigitChange(idx, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(idx, e)}
-                  onPaste={handlePaste}
-                  className="bento-input mono"
-                  style={{ height: "52px", textAlign: "center", fontSize: "20px", fontWeight: 700, padding: 0 }}
-                />
-              ))}
-            </div>
+          <div className="otp-row" role="group" aria-label="6-digit code">
+            {digits.map((d, idx) => (
+              <input
+                key={idx}
+                ref={(el) => { inputsRef.current[idx] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                aria-label={`Digit ${idx + 1}`}
+                className="mono"
+                value={d}
+                onChange={(e) => handleDigitChange(idx, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(idx, e)}
+                onPaste={handlePaste}
+              />
+            ))}
           </div>
 
           {error && <Toast tone="critical">{error}</Toast>}
           {info && <Toast tone="success">{info}</Toast>}
 
           <Button type="submit" fullWidth disabled={loading}>
-            {loading ? "Verifying…" : "Verify Email & Continue"}
+            {loading ? "Verifying…" : "Verify and continue"}
           </Button>
         </form>
 
-        <div style={{ marginTop: "18px", paddingTop: "14px", borderTop: "1px solid var(--border-card)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-          <Button variant="ghost" type="button" disabled={cooldown > 0} onClick={handleResend}>
-            {cooldown > 0 ? `Resend available in ${cooldown}s` : "Resend 6-digit OTP"}
-          </Button>
-          <Link href="/login" style={{ color: "var(--muted)", textDecoration: "none" }}>
-            Back to login
-          </Link>
-        </div>
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--muted)", margin: "16px 0 0" }}>
+          {cooldown > 0 ? (
+            <>Resend code in <b style={{ color: "var(--ink)" }}>{mm}:{ss}</b></>
+          ) : (
+            <button type="button" onClick={handleResend} style={{ background: "none", border: 0, color: "var(--teal)", fontWeight: 600, cursor: "pointer", font: "inherit", minHeight: 44 }}>
+              Resend code
+            </button>
+          )}
+        </p>
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--muted)", margin: "4px 0 0" }}>
+          Wrong email? <Link href="/register" style={{ color: "var(--teal)" }}>Change it</Link>
+        </p>
       </Card>
     </div>
   );
@@ -168,7 +162,7 @@ function VerifyEmailInner() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div style={{ maxWidth: "460px", margin: "24px auto" }} />}>
+    <Suspense fallback={<div style={{ maxWidth: 440, margin: "0 auto" }} />}>
       <VerifyEmailInner />
     </Suspense>
   );

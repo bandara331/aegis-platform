@@ -3,29 +3,30 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Button, SessionExpiredModal, Tag } from "@/components/ui";
+import { Icon, LogoMark, type IconName } from "@/components/icons/Icon";
+import { SessionExpiredModal } from "@/components/ui";
 
 interface RailItem {
   href: string;
   label: string;
-  icon: string;
-  roles: string[]; // Empty array = accessible to all 8 staff roles
+  icon: IconName;
+  roles: string[]; // Empty array = accessible to all staff roles
 }
 
 const ALL_RAIL_ITEMS: RailItem[] = [
-  { href: "/admin", label: "Overview", icon: "◈", roles: [] },
-  { href: "/admin/requests", label: "Requests", icon: "☰", roles: ["EmergencyCoordinator", "CaseManager", "SystemAdmin"] },
-  { href: "/admin/chat", label: "Chat", icon: "✉", roles: ["EmergencyCoordinator", "CaseManager", "SystemAdmin"] },
-  { href: "/admin/map", label: "Map", icon: "⊕", roles: ["EmergencyCoordinator", "CaseManager", "LogisticsManager", "ShelterAdmin", "SystemAdmin"] },
-  { href: "/admin/shelters", label: "Shelters", icon: "⌂", roles: ["EmergencyCoordinator", "ShelterAdmin", "SystemAdmin"] },
-  { href: "/admin/resources", label: "Resources", icon: "◫", roles: ["EmergencyCoordinator", "LogisticsManager", "SystemAdmin"] },
-  { href: "/admin/volunteers", label: "Volunteers", icon: "⚑", roles: ["EmergencyCoordinator", "VolunteerCoordinator", "SystemAdmin"] },
-  { href: "/admin/donations", label: "Donations", icon: "♡", roles: ["EmergencyCoordinator", "DonorOfficer", "SystemAdmin"] },
-  { href: "/admin/alerts", label: "Alerts", icon: "⚡", roles: ["EmergencyCoordinator", "SystemAdmin"] },
-  { href: "/admin/audit", label: "Audit", icon: "⛓", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
-  { href: "/admin/reports", label: "Reports", icon: "▤", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
-  { href: "/admin/users", label: "Users", icon: "⚙", roles: ["SystemAdmin"] },
-  { href: "/admin/system", label: "System", icon: " pulse", roles: ["EmergencyCoordinator", "SystemAdmin"] },
+  { href: "/admin", label: "Overview", icon: "home", roles: [] },
+  { href: "/admin/requests", label: "Requests", icon: "list", roles: ["EmergencyCoordinator", "CaseManager", "SystemAdmin"] },
+  { href: "/admin/chat", label: "Chat", icon: "chat", roles: ["EmergencyCoordinator", "CaseManager", "SystemAdmin"] },
+  { href: "/admin/map", label: "Map", icon: "pin", roles: ["EmergencyCoordinator", "CaseManager", "LogisticsManager", "ShelterAdmin", "SystemAdmin"] },
+  { href: "/admin/shelters", label: "Shelters", icon: "home", roles: ["EmergencyCoordinator", "ShelterAdmin", "SystemAdmin"] },
+  { href: "/admin/resources", label: "Resources", icon: "box", roles: ["EmergencyCoordinator", "LogisticsManager", "SystemAdmin"] },
+  { href: "/admin/volunteers", label: "Volunteers", icon: "people", roles: ["EmergencyCoordinator", "VolunteerCoordinator", "SystemAdmin"] },
+  { href: "/admin/donations", label: "Donations", icon: "heart", roles: ["EmergencyCoordinator", "DonorOfficer", "SystemAdmin"] },
+  { href: "/admin/alerts", label: "Alerts", icon: "bell", roles: ["EmergencyCoordinator", "SystemAdmin"] },
+  { href: "/admin/audit", label: "Audit", icon: "shield", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
+  { href: "/admin/reports", label: "Reports", icon: "doc", roles: ["EmergencyCoordinator", "PartnerOfficer", "SystemAdmin"] },
+  { href: "/admin/users", label: "Users", icon: "user", roles: ["SystemAdmin"] },
+  { href: "/admin/system", label: "System", icon: "pulse", roles: ["EmergencyCoordinator", "SystemAdmin"] },
 ];
 
 interface HealthDot {
@@ -70,6 +71,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     (item) => item.roles.length === 0 || item.roles.includes(role)
   );
 
+  const activeNav =
+    ALL_RAIL_ITEMS.find((item) =>
+      item.href === "/admin"
+        ? pathname === "/admin"
+        : pathname === item.href || pathname.startsWith(`${item.href}/`)
+    ) ?? ALL_RAIL_ITEMS[0];
+
+  const initials = role
+    .replace(/([A-Z])/g, " $1")
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "SA";
+
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/staff/login");
@@ -79,25 +96,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="admin-shell">
       <aside className="admin-rail" aria-label="Staff icon rail navigation">
-        <Link
-          href="/admin"
-          title="AEGIS Operations"
-          style={{
-            width: "44px",
-            height: "44px",
-            borderRadius: "12px",
-            background: "var(--accent)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 800,
-            textDecoration: "none",
-            marginBottom: "8px",
-            flexShrink: 0,
-          }}
-        >
-          A
+        <Link href="/admin" className="logo" title="AEGIS Operations">
+          <LogoMark size={20} />
         </Link>
 
         {visibleRail.map((item) => {
@@ -110,73 +110,96 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`admin-rail-link ${active ? "active" : ""}`.trim()}
+              className={`rail-btn ${active ? "active" : ""}`.trim()}
               title={item.label}
+              aria-label={item.label}
             >
-              <span aria-hidden="true" style={{ fontSize: "15px", lineHeight: 1 }}>
-                {item.icon === " pulse" ? "●" : item.icon}
-              </span>
-              <span>{item.label}</span>
+              <Icon name={item.icon} size={18} />
             </Link>
           );
         })}
+
+        <div className="rail-spacer" />
+
+        <button
+          type="button"
+          className="rail-btn"
+          title="Sign out"
+          aria-label="Sign out"
+          onClick={handleSignOut}
+          style={{ border: 0, background: "transparent", cursor: "pointer" }}
+        >
+          <Icon name="logout" size={18} />
+        </button>
       </aside>
 
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <header className="admin-topbar">
-          <div style={{ flex: 1, maxWidth: "420px" }}>
-            <input
-              type="search"
-              placeholder="Search requests, shelters, depots, audit logs…"
-              aria-label="Search operational records"
-              className="bento-input"
-              style={{ minHeight: "40px", height: "40px", background: "var(--bg-subtle)" }}
-            />
+      <div className="admin-body">
+        <header className="admin-top">
+          <div className="crumb">
+            <span>AEGIS</span>
+            <span>/</span>
+            <b>{activeNav.label}</b>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }} aria-label="Subsystem health status">
-              {health.map((h) => {
-                const color =
-                  h.status === "Healthy"
-                    ? "var(--success)"
-                    : h.status === "Degraded"
-                      ? "var(--warning)"
-                      : "var(--critical)";
-                return (
-                  <Link
-                    key={h.serviceName}
-                    href="/admin/system"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontSize: "12px",
-                      color: "var(--muted)",
-                      textDecoration: "none",
-                    }}
-                    title={`${h.serviceName}: ${h.status}`}
-                  >
-                    <span
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        background: color,
-                        display: "inline-block",
-                      }}
-                    />
-                    <span className="mono">{h.serviceName}</span>
-                  </Link>
-                );
-              })}
+          <div className="top-search">
+            <Icon name="search" size={14} />
+            <input
+              type="search"
+              placeholder="Search requests, people, shelters…"
+              aria-label="Search requests, people, shelters"
+              style={{
+                border: 0,
+                outline: "none",
+                background: "transparent",
+                fontSize: "13px",
+                color: "var(--ink)",
+                width: "100%",
+              }}
+            />
+            <kbd>Ctrl K</kbd>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginLeft: "auto" }}>
+            <Link
+              href="/admin/system"
+              className="health"
+              title="System health status"
+              style={{ textDecoration: "none" }}
+            >
+              {health.length > 0 ? (
+                <>
+                  {health.slice(0, 3).map((h) => {
+                    const color =
+                      h.status === "Healthy"
+                        ? "var(--mint)"
+                        : h.status === "Degraded"
+                          ? "var(--sun)"
+                          : "var(--coral)";
+                    return (
+                      <span
+                        key={h.serviceName}
+                        className="dot"
+                        style={{ background: color }}
+                        title={`${h.serviceName}: ${h.status}`}
+                      />
+                    );
+                  })}
+                  <span style={{ marginLeft: "4px" }}>
+                    {health.every((h) => h.status === "Healthy") ? "All systems OK" : "Check system"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="dot" />
+                  <span style={{ marginLeft: "4px" }}>System status</span>
+                </>
+              )}
+            </Link>
+
+            <span className="tag tag-teal">{role}</span>
+            <div className="avatar" title={role}>
+              {initials}
             </div>
-
-            <Tag tone="accent">{role}</Tag>
-
-            <Button variant="ghost" onClick={handleSignOut} style={{ minHeight: "38px", padding: "0 12px" }}>
-              Sign Out
-            </Button>
           </div>
         </header>
 

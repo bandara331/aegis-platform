@@ -3,8 +3,12 @@ import type {
   AiRecommendationItem,
   ApiLoadResult,
   Kpi,
+  DuplicateCandidate,
+  RequestChatMessage,
+  PagedRequestsResult,
   PublicStats,
   QueueItem,
+  RequestDetail,
   ShelterItem,
 } from "./types";
 
@@ -83,6 +87,124 @@ export async function getPendingRecommendations(): Promise<ApiLoadResult<AiRecom
     return { data: (await res.json()) as AiRecommendationItem[], error: null };
   } catch {
     return { data: [], error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getRequests(): Promise<ApiLoadResult<RequestDetail[]>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/requests`, { headers, cache: "no-store" });
+    if (!res.ok) {
+      return { data: [], error: `Unable to load requests (HTTP ${res.status})` };
+    }
+    return { data: (await res.json()) as RequestDetail[], error: null };
+  } catch {
+    return { data: [], error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getRequestById(idOrTracking: string): Promise<ApiLoadResult<RequestDetail | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/requests/${encodeURIComponent(idOrTracking)}`, {
+      headers,
+      cache: "no-store",
+    });
+    if (res.status === 404) {
+      return { data: null, error: null };
+    }
+    if (!res.ok) {
+      return { data: null, error: `Unable to load request (HTTP ${res.status})` };
+    }
+    return { data: (await res.json()) as RequestDetail, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
+  }
+}
+
+export async function getAdminRequestsPaged(params: {
+  search?: string;
+  status?: string;
+  priority?: string;
+  district?: string;
+  language?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<ApiLoadResult<PagedRequestsResult>> {
+  try {
+    const headers = await getAuthHeaders();
+    const query = new URLSearchParams();
+    if (params.search) query.set("search", params.search);
+    if (params.status && params.status !== "All") query.set("status", params.status);
+    if (params.priority && params.priority !== "All") query.set("priority", params.priority);
+    if (params.district && params.district !== "All") query.set("district", params.district);
+    if (params.language && params.language !== "All") query.set("language", params.language);
+    query.set("page", String(params.page || 1));
+    query.set("pageSize", String(params.pageSize || 10));
+
+    const res = await fetch(`${API_BASE_URL}/requests?${query.toString()}`, {
+      headers,
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return {
+        data: { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 },
+        error: `Unable to load requests (HTTP ${res.status})`,
+      };
+    }
+
+    const data = (await res.json()) as PagedRequestsResult;
+    return { data, error: null };
+  } catch {
+    return {
+      data: { items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 },
+      error: "Unable to connect to AEGIS backend API.",
+    };
+  }
+}
+
+export async function getRequestDuplicates(id: string): Promise<ApiLoadResult<DuplicateCandidate[]>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/requests/${id}/duplicates`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return { data: [], error: `Unable to load duplicates (HTTP ${res.status})` };
+    }
+    return { data: await res.json(), error: null };
+  } catch {
+    return { data: [], error: "Unable to connect to duplicates service." };
+  }
+}
+
+export async function getRequestMessages(idOrTracking: string): Promise<ApiLoadResult<RequestChatMessage[]>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/requests/${encodeURIComponent(idOrTracking)}/messages`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return { data: [], error: null };
+    }
+    return { data: await res.json(), error: null };
+  } catch {
+    return { data: [], error: null };
+  }
+}
+
+export async function getRecommendationForRequest(requestId: string): Promise<ApiLoadResult<AiRecommendationItem | null>> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/ai/recommendations/by-request/${requestId}`, { headers, cache: "no-store" });
+    if (res.status === 404) return { data: null, error: null };
+    if (!res.ok) return { data: null, error: `Unable to load AI recommendation (HTTP ${res.status})` };
+    return { data: (await res.json()) as AiRecommendationItem, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to AEGIS backend API." };
   }
 }
 

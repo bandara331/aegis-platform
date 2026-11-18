@@ -57,16 +57,27 @@ public interface IAuthService
 
 public interface IRequestService
 {
+    Task<DuplicateWarningDto?> CheckCitizenDuplicateAsync(CreateRequestDto dto, string? citizenId, CancellationToken cancellationToken = default);
     Task<RequestResponseDto> CreateRequestAsync(CreateRequestDto dto, string? citizenId, string? idempotencyKey, CancellationToken cancellationToken = default);
     Task<RequestResponseDto?> GetByIdAsync(Guid id, string? currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
+    Task<RequestResponseDto?> GetByIdOrTrackingAsync(string idOrTracking, string? currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RequestResponseDto>> GetAllAsync(string? status, string? priority, string? currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
+    Task<PagedRequestsDto> GetPagedAsync(string? search, string? status, string? priority, string? district, string? language, int page, int pageSize, string? currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CaseItemDto>> GetCasesQueueAsync(string? sort, CancellationToken cancellationToken = default);
+    Task<CitizenContactProfileDto?> GetCitizenProfileAsync(string userId, CancellationToken cancellationToken = default);
+    Task<Result<RequestResponseDto>> CancelRequestAsync(Guid id, string? reason, string citizenId, CancellationToken cancellationToken = default);
+    Task<Result<RequestResponseDto>> SubmitFeedbackAsync(Guid id, SubmitFeedbackDto dto, string citizenId, CancellationToken cancellationToken = default);
+    Task<Result<RequestResponseDto>> UpdateStatusAsync(Guid id, UpdateRequestStatusDto dto, string actorId, string actorRole, CancellationToken cancellationToken = default);
+    Task<Result<bool>> KeepSeparateDuplicateAsync(Guid requestId, Guid candidateId, string notes, string actorId, string actorRole, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RequestChatMessageDto>> GetMessagesAsync(string idOrTracking, string? currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
+    Task<Result<RequestChatMessageDto>> SendMessageAsync(string idOrTracking, string messageText, string senderId, string senderRole, string senderName, CancellationToken cancellationToken = default);
 }
 
 public interface IDecisionService
 {
     Task<DecisionResponseDto> RecordDecisionAsync(Guid recommendationId, DecisionRequestDto dto, string decidedById, string decidedByRole, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AiRecommendationDto>> GetPendingRecommendationsAsync(CancellationToken cancellationToken = default);
+    Task<AiRecommendationDto?> GetLatestForRequestAsync(Guid requestId, CancellationToken cancellationToken = default);
 }
 
 public interface IKpiService

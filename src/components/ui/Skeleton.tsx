@@ -13,10 +13,10 @@ export function Skeleton({ height = 24, width = "100%", rows = 1 }: SkeletonProp
           style={{
             height,
             width,
-            borderRadius: "var(--radius-md)",
-            background: "linear-gradient(90deg, #ECEEF2 25%, #F6F7F9 50%, #ECEEF2 75%)",
+            borderRadius: "14px",
+            background: "linear-gradient(90deg, #E8EBF3 25%, #F5F6FB 50%, #E8EBF3 75%)",
             backgroundSize: "200% 100%",
-            animation: "bento-shimmer 1.6s infinite linear",
+            animation: "shimmer-x 1.6s infinite linear",
           }}
         />
       ))}
