@@ -711,11 +711,13 @@ public class AlertsController : ControllerBase
 {
     private readonly AegisDbContext _context;
     private readonly IAuditService _audit;
+    private readonly IConfiguration _configuration;
 
-    public AlertsController(AegisDbContext context, IAuditService audit)
+    public AlertsController(AegisDbContext context, IAuditService audit, IConfiguration configuration)
     {
         _context = context;
         _audit = audit;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -756,6 +758,47 @@ public class AlertsController : ControllerBase
         };
 
         _context.OfficialAlerts.Add(alert);
+
+        // Queue Twilio SMS alerts if Twilio is configured
+        var twilioSid = (_configuration["Twilio:AccountSid"] ?? _configuration["Sms:TwilioAccountSid"])?.Trim().Trim('"');
+        if (!string.IsNullOrWhiteSpace(twilioSid))
+        {
+            var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var defaultRecipients = (_configuration["Twilio:DefaultAlertRecipients"] ?? string.Empty)
+                .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var raw in defaultRecipients)
+            {
+                var norm = Aegis.Infrastructure.Services.TwilioSmsSender.NormalizePhoneNumber(raw);
+                if (!string.IsNullOrWhiteSpace(norm)) recipients.Add(norm);
+            }
+
+            var userPhones = await _context.Users.AsNoTracking()
+                .Where(u => !string.IsNullOrWhiteSpace(u.PhoneNumber))
+                .Select(u => u.PhoneNumber!)
+                .ToListAsync(ct);
+            foreach (var raw in userPhones)
+            {
+                var norm = Aegis.Infrastructure.Services.TwilioSmsSender.NormalizePhoneNumber(raw);
+                if (!string.IsNullOrWhiteSpace(norm)) recipients.Add(norm);
+            }
+
+            var smsBody = $"[AEGIS {alert.Severity.ToUpperInvariant()}] {alert.Title} ({alert.District}): {alert.Message}";
+            foreach (var phone in recipients)
+            {
+                _context.NotificationOutboxes.Add(new NotificationOutbox
+                {
+                    IdempotencyKey = $"alert-sms:{alert.Id}:{phone}",
+                    Recipient = phone,
+                    Channel = NotificationChannel.Sms,
+                    Subject = $"AEGIS {alert.Severity} Alert",
+                    Payload = smsBody,
+                    Status = NotificationStatus.Pending,
+                    Attempts = 0,
+                    NextAttemptAt = DateTime.UtcNow
+                });
+            }
+        }
+
         await _context.SaveChangesAsync(ct);
 
         await _audit.AppendAsync("OfficialAlert", alert.Id.ToString(), "Create", actorId, actorRole,

@@ -95,8 +95,9 @@ builder.Services.AddScoped<IAllocationStrategy, FastestEtaStrategy>();
 builder.Services.AddHttpClient<IRoutingService, OsrmRoutingService>()
     .AddStandardResilienceHandler();
 
-// Email & Outbox integration (SmtpEmailSender via MailKit; marks ServiceHealth email = Down when SMTP unconfigured/failing)
+// Email & SMS Outbox integration (SmtpEmailSender via Brevo/Resend/MailKit; TwilioSmsSender via Twilio HTTPS)
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<ISmsSender, TwilioSmsSender>();
 builder.Services.AddScoped<INotificationProvider, SmtpEmailSender>();
 builder.Services.AddHostedService<NotificationOutboxWorker>();
 

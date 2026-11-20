@@ -218,6 +218,142 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
 }
 
 /// <summary>
+/// Sends SMS alerts over HTTPS via Twilio REST API (Free Trial / Production compatible on Railway).
+/// Reads Twilio:AccountSid, Twilio:AuthToken, Twilio:FromNumber from configuration.
+/// </summary>
+public class TwilioSmsSender : ISmsSender
+{
+    private readonly IConfiguration _configuration;
+    private readonly AegisDbContext _context;
+    private readonly ILogger<TwilioSmsSender> _logger;
+
+    public TwilioSmsSender(
+        IConfiguration configuration,
+        AegisDbContext context,
+        ILogger<TwilioSmsSender> logger)
+    {
+        _configuration = configuration;
+        _context = context;
+        _logger = logger;
+    }
+
+    public static string? NormalizePhoneNumber(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var trimmed = raw.Trim().Trim('"');
+        var sb = new StringBuilder();
+        foreach (var ch in trimmed)
+        {
+            if (char.IsDigit(ch) || (ch == '+' && sb.Length == 0))
+                sb.Append(ch);
+        }
+        var cleaned = sb.ToString();
+        if (cleaned.Length < 9) return null;
+
+        // Convert Sri Lankan local format (07XXXXXXXX) to E.164 (+947XXXXXXXX)
+        if (cleaned.StartsWith('0') && cleaned.Length == 10)
+            return "+94" + cleaned[1..];
+        if (!cleaned.StartsWith('+'))
+            return "+" + cleaned;
+        return cleaned;
+    }
+
+    public async Task<bool> SendSmsAsync(string toPhoneNumber, string message, CancellationToken cancellationToken = default)
+    {
+        var accountSid = (_configuration["Twilio:AccountSid"] ?? _configuration["Sms:TwilioAccountSid"])?.Trim().Trim('"');
+        var authToken = (_configuration["Twilio:AuthToken"] ?? _configuration["Sms:TwilioAuthToken"])?.Trim().Trim('"');
+        var fromNumber = (_configuration["Twilio:FromNumber"] ?? _configuration["Sms:TwilioFromNumber"])?.Trim().Trim('"');
+
+        if (string.IsNullOrWhiteSpace(accountSid) ||
+            string.IsNullOrWhiteSpace(authToken) ||
+            string.IsNullOrWhiteSpace(fromNumber))
+        {
+            await UpdateSmsHealthAsync("Down", "Twilio SMS not configured (Twilio__AccountSid/AuthToken/FromNumber missing).", cancellationToken);
+            return false;
+        }
+
+        var normalizedTo = NormalizePhoneNumber(toPhoneNumber);
+        if (string.IsNullOrWhiteSpace(normalizedTo))
+        {
+            _logger.LogWarning("Skipping SMS delivery: invalid phone number format.");
+            return false;
+        }
+
+        var bodyText = (message ?? string.Empty).Trim();
+        if (bodyText.Length > 1500)
+            bodyText = bodyText[..1497] + "...";
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{accountSid}:{authToken}"));
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"https://api.twilio.com/2010-04-01/Accounts/{accountSid}/Messages.json");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+            req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["To"] = normalizedTo,
+                ["From"] = fromNumber,
+                ["Body"] = bodyText
+            });
+
+            using var res = await http.SendAsync(req, cancellationToken);
+            if (res.IsSuccessStatusCode)
+            {
+                await UpdateSmsHealthAsync("Healthy", "Delivered via Twilio HTTPS API", cancellationToken);
+                _logger.LogInformation("SMS dispatched via Twilio HTTPS.");
+                return true;
+            }
+
+            var errBody = await res.Content.ReadAsStringAsync(cancellationToken);
+            var shortErr = errBody.Length > 160 ? errBody[..160] : errBody;
+            await UpdateSmsHealthAsync("Down", $"Twilio HTTPS error (HTTP {(int)res.StatusCode}): {shortErr}", cancellationToken);
+            _logger.LogWarning("Twilio SMS failed with HTTP {StatusCode}: {Error}", (int)res.StatusCode, shortErr);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            await UpdateSmsHealthAsync("Down", $"Twilio HTTPS failure ({ex.GetType().Name}).", cancellationToken);
+            _logger.LogWarning(ex, "Twilio SMS request threw {ExceptionType}", ex.GetType().Name);
+            return false;
+        }
+    }
+
+    private async Task UpdateSmsHealthAsync(string status, string details, CancellationToken ct)
+    {
+        try
+        {
+            var row = await _context.ServiceHealths
+                .FirstOrDefaultAsync(s => s.ServiceName.ToLower() == "sms", ct);
+
+            if (row == null)
+            {
+                _context.ServiceHealths.Add(new ServiceHealth
+                {
+                    ServiceName = "sms",
+                    Status = status,
+                    Details = details,
+                    LastCheckedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                row.ServiceName = "sms";
+                row.Status = status;
+                row.Details = details;
+                row.LastCheckedAt = DateTime.UtcNow;
+            }
+            await _context.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            // Avoid masking caller flow
+        }
+    }
+}
+
+/// <summary>
 /// Transactional Outbox Background Worker with exponential backoff and idempotency deduplication.
 /// Pattern: Transactional Outbox.
 /// </summary>
@@ -266,6 +402,7 @@ public class NotificationOutboxWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AegisDbContext>();
         var provider = scope.ServiceProvider.GetRequiredService<INotificationProvider>();
+        var smsSender = scope.ServiceProvider.GetService<ISmsSender>();
 
         var now = DateTime.UtcNow;
         var pending = await db.NotificationOutboxes
@@ -280,7 +417,22 @@ public class NotificationOutboxWorker : BackgroundService
             try
             {
                 item.Attempts += 1;
-                var sent = await provider.SendAsync(item.Recipient, item.Subject, item.Payload, cancellationToken);
+                bool sent;
+                if (item.Channel == NotificationChannel.Sms)
+                {
+                    if (smsSender == null)
+                    {
+                        ApplyExponentialBackoff(item, "SMS sender not registered");
+                        continue;
+                    }
+                    var decoded = NotificationFactory.DecodeDualPayload(item.Payload);
+                    sent = await smsSender.SendSmsAsync(item.Recipient, decoded.PlainText, cancellationToken);
+                }
+                else
+                {
+                    sent = await provider.SendAsync(item.Recipient, item.Subject, item.Payload, cancellationToken);
+                }
+
                 if (sent)
                 {
                     item.Status = NotificationStatus.Sent;
@@ -289,7 +441,7 @@ public class NotificationOutboxWorker : BackgroundService
                 }
                 else
                 {
-                    ApplyExponentialBackoff(item, "SMTP delivery returned false");
+                    ApplyExponentialBackoff(item, item.Channel == NotificationChannel.Sms ? "SMS delivery returned false" : "SMTP delivery returned false");
                 }
             }
             catch (Exception ex)
