@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card, EmptyState, Tag } from "@/components/ui";
+import { addOsmTileLayer, loadLeaflet, type LeafletMap } from "@/lib/maps/leaflet";
 import type { DistrictRiskDto, DistrictRiskResponseDto, ShelterItem } from "@/lib/api/types";
 
 interface Props {
@@ -35,64 +36,87 @@ export function AdminMapClient({ shelters, initialRisk, googleMapsApiKey }: Prop
   const [selected, setSelected] = useState<DistrictRiskDto | null>(initialRisk?.districts[0] ?? null);
   const [refreshing, setRefreshing] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [locatingGps, setLocatingGps] = useState(false);
+  const [myGps, setMyGps] = useState<{ lat: number; lng: number } | null>(null);
   const mapElRef = useRef<HTMLDivElement | null>(null);
+  const leafletMapRef = useRef<LeafletMap | null>(null);
 
   const districts = risk?.districts ?? [];
 
   useEffect(() => {
-    if (!googleMapsApiKey || !mapElRef.current) return;
+    let cancelled = false;
 
-    const initMap = () => {
-      if (!window.google?.maps || !mapElRef.current) return;
-      const map = new window.google.maps.Map(mapElRef.current, {
-        center: { lat: 7.8731, lng: 80.7718 },
-        zoom: 7,
-        mapTypeControl: false,
-      });
+    async function renderLiveMap() {
+      if (!mapElRef.current) return;
+      const L = await loadLeaflet();
+      if (cancelled || !L || !mapElRef.current) return;
+
+      leafletMapRef.current?.remove();
+      const center: [number, number] = myGps ? [myGps.lat, myGps.lng] : [7.8731, 80.7718];
+      const map = L.map(mapElRef.current, { zoomControl: true }).setView(center, myGps ? 11 : 7);
+      addOsmTileLayer(L, map);
 
       districts.forEach((d) => {
         const color = RISK_COLORS[d.riskLevel] ?? "#64748B";
-        if (window.google?.maps.Circle) {
-          const circle = new window.google.maps.Circle({
-            map,
-            center: { lat: d.latitude, lng: d.longitude },
-            radius: 18000,
-            strokeColor: color,
-            strokeOpacity: 0.9,
-            strokeWeight: 2,
-            fillColor: color,
-            fillOpacity: 0.35,
-            clickable: true,
-          });
-          circle.addListener("click", () => setSelected(d));
-        }
+        const circle = L.circle([d.latitude, d.longitude], {
+          radius: 16000,
+          color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.35,
+        }).addTo(map);
+        circle.bindPopup(`<b>${d.district}</b><br/>Risk: ${d.riskLevel} (${d.riskScore})`);
+        circle.on("click", () => setSelected(d));
       });
 
       shelters.forEach((s) => {
-        new window.google!.maps.Marker({
-          map,
-          position: { lat: s.latitude, lng: s.longitude },
-          title: `${s.name} (${s.occupancy}/${s.capacity})`,
-        });
+        const marker = L.circleMarker([s.latitude, s.longitude], {
+          radius: 7,
+          color: "#0F172A",
+          weight: 2,
+          fillColor: "#14B8A6",
+          fillOpacity: 0.95,
+        }).addTo(map);
+        marker.bindPopup(`<b>${s.name}</b><br/>Occupancy: ${s.occupancy}/${s.capacity}`);
       });
+
+      if (myGps) {
+        const me = L.circleMarker([myGps.lat, myGps.lng], {
+          radius: 8,
+          color: "#FFFFFF",
+          weight: 3,
+          fillColor: "#2563EB",
+          fillOpacity: 1,
+        }).addTo(map);
+        me.bindPopup(`<b>Your GPS Location</b><br/>${myGps.lat.toFixed(4)}, ${myGps.lng.toFixed(4)}`);
+      }
+
+      leafletMapRef.current = map;
       setMapReady(true);
+    }
+
+    void renderLiveMap();
+    return () => {
+      cancelled = true;
+      leafletMapRef.current?.remove();
+      leafletMapRef.current = null;
     };
+  }, [districts, shelters, myGps]);
 
-    if (window.google?.maps) {
-      initMap();
-      return;
-    }
-
-    const scriptId = "aegis-gmaps-js";
-    if (!document.getElementById(scriptId)) {
-      const s = document.createElement("script");
-      s.id = scriptId;
-      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey)}`;
-      s.async = true;
-      s.onload = initMap;
-      document.head.appendChild(s);
-    }
-  }, [googleMapsApiKey, districts, shelters]);
+  function handleLocateMe() {
+    if (!("geolocation" in navigator)) return;
+    setLocatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocatingGps(false);
+        const lat = Number(pos.coords.latitude.toFixed(5));
+        const lng = Number(pos.coords.longitude.toFixed(5));
+        setMyGps({ lat, lng });
+      },
+      () => setLocatingGps(false),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
 
   async function handleRefreshRisk() {
     setRefreshing(true);
@@ -125,61 +149,31 @@ export function AdminMapClient({ shelters, initialRisk, googleMapsApiKey }: Prop
               </div>
             )}
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => void handleRefreshRisk()}
-            disabled={refreshing}
-          >
-            {refreshing ? "Refreshing…" : "Refresh Risk Index"}
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleLocateMe}
+              disabled={locatingGps}
+            >
+              {locatingGps ? "Locating…" : "My GPS"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => void handleRefreshRisk()}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing…" : "Refresh Risk Index"}
+            </button>
+          </div>
         </div>
 
-        {googleMapsApiKey ? (
-          <div
-            ref={mapElRef}
-            style={{ width: "100%", height: 420, borderRadius: 14, background: "#E2E8F0" }}
-            aria-label={mapReady ? "Google Map with District Risk Circles" : "Loading Google Map"}
-          />
-        ) : districts.length === 0 && shelters.length === 0 ? (
-          <EmptyState
-            title="0 geospatial pins or district risk records"
-            description="Submit requests or alerts with district names to populate real Open-Meteo risk circles."
-          />
-        ) : (
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}>
-            {districts.map((d) => {
-              const color = RISK_COLORS[d.riskLevel] ?? "#64748B";
-              const isSel = selected?.district === d.district;
-              return (
-                <button
-                  key={d.district}
-                  type="button"
-                  onClick={() => setSelected(d)}
-                  style={{
-                    textAlign: "left",
-                    padding: 12,
-                    borderRadius: 12,
-                    border: isSel ? `2px solid ${color}` : "1px solid var(--border-card)",
-                    background: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 14, height: 14, borderRadius: 999, background: color, display: "inline-block" }} />
-                    <b style={{ fontSize: 13.5 }}>{d.district}</b>
-                  </div>
-                  <div className="mono" style={{ fontSize: 12, marginTop: 4, color }}>
-                    {d.riskLevel} ({d.riskScore})
-                  </div>
-                  <div className="muted mono" style={{ fontSize: 11 }}>
-                    {d.latitude.toFixed(2)}, {d.longitude.toFixed(2)}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div
+          ref={mapElRef}
+          style={{ width: "100%", height: 430, borderRadius: 14, background: "#E2E8F0", zIndex: 1 }}
+          aria-label={mapReady ? "Live OpenStreetMap with District Risk Circles and Shelters" : "Loading Live Map"}
+        />
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12, fontSize: 12 }}>
           {Object.entries(RISK_COLORS).map(([lvl, col]) => (

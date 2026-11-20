@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import { addOsmTileLayer, loadLeaflet, type LeafletLayer, type LeafletMap } from "@/lib/maps/leaflet";
 
 export interface LocationValue {
   area: string;
@@ -18,10 +19,18 @@ interface LocationPickerProps {
 export function LocationPicker({ districts, value, onChange }: LocationPickerProps) {
   const [locating, setLocating] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<string>("Requesting GPS location…");
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerRef = useRef<LeafletLayer | null>(null);
+  const onChangeRef = useRef(onChange);
+  const valueRef = useRef(value);
+
+  onChangeRef.current = onChange;
+  valueRef.current = value;
 
   function acquireGps() {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
-      setGpsStatus("Geolocation unavailable in this browser — select your district or tap map.");
+      setGpsStatus("Geolocation unavailable — tap the live map or select your district.");
       return;
     }
 
@@ -33,87 +42,99 @@ export function LocationPicker({ districts, value, onChange }: LocationPickerPro
         const lat = Number(pos.coords.latitude.toFixed(5));
         const lng = Number(pos.coords.longitude.toFixed(5));
         setGpsStatus(`GPS locked (±${Math.round(pos.coords.accuracy)}m)`);
-        onChange({
-          ...value,
+        onChangeRef.current({
+          ...valueRef.current,
           latitude: lat,
           longitude: lng,
           gpsAcquired: true,
         });
+        if (mapRef.current && markerRef.current) {
+          markerRef.current.setLatLng([lat, lng]);
+          mapRef.current.setView([lat, lng], 14);
+        }
       },
       () => {
         setLocating(false);
-        setGpsStatus("GPS permission declined — tap map or enter your area below.");
+        setGpsStatus("GPS permission declined — tap anywhere on the map to drop your pin.");
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   }
 
-  // GPS by default on mount
+  // Initialize live OpenStreetMap + acquire GPS on mount
   useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      const L = await loadLeaflet();
+      if (cancelled || !L || !mapContainerRef.current) return;
+
+      const map = L.map(mapContainerRef.current, { zoomControl: true }).setView(
+        [valueRef.current.latitude, valueRef.current.longitude],
+        valueRef.current.gpsAcquired ? 14 : 8
+      );
+      addOsmTileLayer(L, map);
+
+      const pin = L.circleMarker([valueRef.current.latitude, valueRef.current.longitude], {
+        radius: 9,
+        color: "#0F766E",
+        weight: 3,
+        fillColor: "#14B8A6",
+        fillOpacity: 0.9,
+      }).addTo(map);
+      pin.bindPopup("Your incident pin");
+
+      map.on("click", (e) => {
+        const lat = Number(e.latlng.lat.toFixed(5));
+        const lng = Number(e.latlng.lng.toFixed(5));
+        pin.setLatLng([lat, lng]);
+        setGpsStatus("Pin placed on live map");
+        onChangeRef.current({
+          ...valueRef.current,
+          latitude: lat,
+          longitude: lng,
+          gpsAcquired: true,
+        });
+      });
+
+      mapRef.current = map;
+      markerRef.current = pin;
+    }
+
+    void init();
     acquireGps();
+
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleMapClick(e: MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
-    const relY = Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height));
-
-    // Map Sri Lanka bounding box (~5.9°N..9.8°N, 79.6°E..81.9°E)
-    const lat = Number((9.8 - relY * (9.8 - 5.9)).toFixed(5));
-    const lng = Number((79.6 + relX * (81.9 - 79.6)).toFixed(5));
-    setGpsStatus("Pin placed on map");
-    onChange({
-      ...value,
-      latitude: lat,
-      longitude: lng,
-      gpsAcquired: true,
-    });
-  }
-
-  // Compute pin position inside map box from lat/lng
-  const pinLeftPct = Math.max(
-    10,
-    Math.min(90, ((value.longitude - 79.6) / (81.9 - 79.6)) * 100)
-  );
-  const pinTopPct = Math.max(
-    15,
-    Math.min(85, ((9.8 - value.latitude) / (9.8 - 5.9)) * 100)
-  );
+  // Keep marker synced if parent updates coordinates
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng([value.latitude, value.longitude]);
+    }
+  }, [value.latitude, value.longitude]);
 
   return (
     <div className="field">
-      <label className="label">Your location (GPS by default)</label>
+      <label className="label">Your location (live GPS map)</label>
       <div className="loc-card">
         <div
-          className="loc-map"
-          onClick={handleMapClick}
-          role="button"
-          tabIndex={0}
-          aria-label="Interactive location picker map — click to adjust pin"
-          style={{ cursor: "crosshair" }}
-        >
-          <svg viewBox="0 0 320 92" preserveAspectRatio="none">
-            <rect width="320" height="92" fill="#E6EEF6" />
-            <path
-              d="M0 60 Q 90 40 170 65 T 320 55 L320 92 L0 92 Z"
-              fill="#B9DFEC"
-              opacity=".7"
-            />
-            <g stroke="#FFFFFF" strokeWidth="2.5" fill="none">
-              <path d="M0 30 L 320 48" />
-              <path d="M110 0 L 130 92" />
-              <path d="M230 0 L 210 92" />
-            </g>
-          </svg>
-          <div
-            className="loc-pin"
-            style={{
-              left: `${pinLeftPct}%`,
-              top: `${pinTopPct}%`,
-            }}
-          />
-        </div>
+          ref={mapContainerRef}
+          aria-label="Interactive OpenStreetMap location picker — click to place pin"
+          style={{
+            width: "100%",
+            height: 220,
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#E2E8F0",
+            zIndex: 1,
+          }}
+        />
         <div className="loc-row">
           <div>
             <b style={{ display: "block", fontSize: "12.5px", color: "var(--ink)" }}>
@@ -137,7 +158,7 @@ export function LocationPicker({ districts, value, onChange }: LocationPickerPro
               cursor: "pointer",
             }}
           >
-            {locating ? "Locating…" : "Use my location"}
+            {locating ? "Locating…" : "Use my GPS"}
           </button>
         </div>
       </div>

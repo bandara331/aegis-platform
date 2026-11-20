@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card, EmptyState, PageHeader, Tag, Toast } from "@/components/ui";
+import { addOsmTileLayer, loadLeaflet, type LeafletMap } from "@/lib/maps/leaflet";
 import type { DispatchPlanDto, VehicleDto } from "@/lib/api/types";
 
 const ROUTE_COLORS = ["#7C3AED", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
@@ -87,54 +88,53 @@ export function DispatchClient({ googleMapsApiKey }: { googleMapsApiKey?: string
     void loadVehicles();
   }, [loadVehicles]);
 
+  const leafletMapRef = useRef<LeafletMap | null>(null);
+
   useEffect(() => {
-    if (!googleMapsApiKey || !mapRef.current || !plan) return;
+    let cancelled = false;
+    async function renderMap() {
+      if (!mapRef.current || !plan) return;
+      const L = await loadLeaflet();
+      if (cancelled || !L || !mapRef.current) return;
 
-    const renderMap = () => {
-      if (!window.google?.maps || !mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 7.4, lng: 80.5 },
-        zoom: 8,
-        mapTypeControl: false,
-      });
+      leafletMapRef.current?.remove();
+      const map = L.map(mapRef.current, { zoomControl: true }).setView([7.4, 80.5], 8);
+      addOsmTileLayer(L, map);
 
+      const allBounds: [number, number][] = [];
       plan.routes.forEach((r, idx) => {
         const color = ROUTE_COLORS[idx % ROUTE_COLORS.length];
-        const path = decodePolyline(r.encodedPolyline);
-        if (window.google?.maps.Polyline && path.length > 0) {
-          new window.google.maps.Polyline({
-            map,
-            path,
-            strokeColor: color,
-            strokeOpacity: 0.9,
-            strokeWeight: 4,
-          });
+        const path = decodePolyline(r.encodedPolyline).map((p) => [p.lat, p.lng] as [number, number]);
+        if (path.length > 0) {
+          L.polyline(path, { color, weight: 4, opacity: 0.9 }).addTo(map);
+          allBounds.push(...path);
         }
         r.stops.forEach((s) => {
-          new window.google!.maps.Marker({
-            map,
-            position: { lat: s.latitude, lng: s.longitude },
-            title: `${r.vehicleName} Stop #${s.sequence}: #${s.trackingNumber} (${s.etaMinutes}m)`,
-          });
+          allBounds.push([s.latitude, s.longitude]);
+          const m = L.circleMarker([s.latitude, s.longitude], {
+            radius: 7,
+            color: "#0F172A",
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.95,
+          }).addTo(map);
+          m.bindPopup(`<b>${r.vehicleName}</b><br/>Stop #${s.sequence}: #${s.trackingNumber} (${s.etaMinutes}m)`);
         });
       });
+
+      if (allBounds.length > 1) {
+        map.fitBounds(allBounds, { padding: [24, 24] });
+      }
+      leafletMapRef.current = map;
+    }
+
+    void renderMap();
+    return () => {
+      cancelled = true;
+      leafletMapRef.current?.remove();
+      leafletMapRef.current = null;
     };
-
-    if (window.google?.maps) {
-      renderMap();
-      return;
-    }
-
-    const scriptId = "aegis-gmaps-js";
-    if (!document.getElementById(scriptId)) {
-      const s = document.createElement("script");
-      s.id = scriptId;
-      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey)}`;
-      s.async = true;
-      s.onload = renderMap;
-      document.head.appendChild(s);
-    }
-  }, [googleMapsApiKey, plan]);
+  }, [plan]);
 
   async function handleAddVehicle(e: React.FormEvent) {
     e.preventDefault();
@@ -342,11 +342,9 @@ export function DispatchClient({ googleMapsApiKey }: { googleMapsApiKey?: string
             </div>
           </Card>
 
-          {googleMapsApiKey && (
-            <Card>
-              <div ref={mapRef} style={{ width: "100%", height: 360, borderRadius: 12, background: "#E2E8F0" }} />
-            </Card>
-          )}
+          <Card>
+            <div ref={mapRef} style={{ width: "100%", height: 360, borderRadius: 12, background: "#E2E8F0", zIndex: 1 }} />
+          </Card>
 
           <div className="bento-grid cols-2">
             {plan.routes.map((r, idx) => {
