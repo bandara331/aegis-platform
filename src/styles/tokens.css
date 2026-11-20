@@ -367,9 +367,9 @@ code, pre, .mono { font-family: var(--font-mono), ui-monospace, monospace; }
 }
 
 .bento-grid { display: grid; gap: 16px; }
-.bento-grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.bento-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.bento-grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.bento-grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.bento-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
+.bento-grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
 
 /* Segmented language picker + custom check (register) */
 .seg { display: flex; gap: 6px; }
@@ -2986,4 +2986,107 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
   .cnav-bar { border-radius: 24px; padding: 10px 12px; }
   .citizen-container { padding: 14px 14px 36px; }
   .cit-summary-stats { grid-template-columns: 1fr; }
+
+  /* Universal mobile comfort & overflow prevention */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+  .admin-shell, .admin-main, .citizen-shell, .pub-shell {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .admin-main {
+    padding: 12px 12px 32px;
+    overflow-x: hidden;
+  }
+  .admin-rail {
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-rail::-webkit-scrollbar { display: none; }
+  .admin-topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  /* Prevent iOS Safari auto-zoom on form focus and ensure comfortable tap targets */
+  .input, .select, .textarea, .bento-input, .bento-select, .bento-textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .btn {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-height: 38px;
+  }
+
+  /* Tables scroll cleanly inside cards on narrow screens */
+  .card table, .bento-card table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+  .pills .pill {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .lp-hero {
+    padding: 28px 16px 20px;
+  }
+  .lp-h1 {
+    font-size: clamp(30px, 8.5vw, 44px);
+    line-height: 1.08;
+  }
+  .lp-lead {
+    font-size: 15px;
+  }
+  .lp-ctas {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 340px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .lp-ctas .lbtn {
+    width: 100%;
+    justify-content: center;
+  }
+  .card, .bento-card {
+    padding: 16px;
+    border-radius: 20px;
+  }
+  .kv {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .kv b {
+    text-align: left;
+    word-break: break-word;
+  }
+  .cit-metrics-row {
+    grid-template-columns: 1fr;
+  }
+  .auth-wrap {
+    gap: 14px;
+    padding: 0 12px;
+  }
+  .auth-aside, .auth-card {
+    padding: 20px 16px;
+    border-radius: 22px;
+  }
 }
