@@ -97,12 +97,22 @@ export default async function LandingPage() {
         <section
           aria-label="Live public statistics"
           className="kpis"
-          style={{ position: "relative", zIndex: 2, maxWidth: "1208px", margin: "0 auto 16px", padding: "0 16px" }}
+          style={{
+            position: "relative",
+            zIndex: 2,
+            maxWidth: "1208px",
+            margin: "0 auto 20px",
+            padding: "0 16px",
+            gridTemplateColumns: `repeat(auto-fit, minmax(210px, 1fr))`,
+          }}
         >
           {live.map((m) => (
             <div className="kpi" key={m.label}>
-              <span>{m.label}</span>
-              <b>{m.value}</b>
+              <div className="kpi-top">
+                <span className="kpi-lbl">{m.label}</span>
+                <span className="tag tag-mint">Live</span>
+              </div>
+              <div className="kpi-num mono">{m.value}</div>
             </div>
           ))}
         </section>
