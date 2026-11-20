@@ -45,10 +45,10 @@ export default function AiGovernanceClient({
   const [savingMode, setSavingMode] = useState(false);
 
   const [confThreshold, setConfThreshold] = useState<number>(
-    initialGovernance?.config.confidenceThreshold ?? 0.6
+    initialGovernance?.config?.confidenceThreshold ?? 0.6
   );
   const [fairnessThreshold, setFairnessThreshold] = useState<number>(
-    initialGovernance?.config.fairnessDisparityThreshold ?? 0.15
+    initialGovernance?.config?.fairnessDisparityThreshold ?? 0.15
   );
   const [thresholdReason, setThresholdReason] = useState("");
   const [savingThresholds, setSavingThresholds] = useState(false);
@@ -58,7 +58,7 @@ export default function AiGovernanceClient({
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [activeTab, setActiveTab] = useState<"day" | "language" | "district" | "category">("day");
 
-  const currentMode = (gov?.config.mode ?? "Active") as "Active" | "Shadow" | "Off";
+  const currentMode = (gov?.config?.mode ?? "Active") as "Active" | "Shadow" | "Off";
 
   async function saveGovernanceUpdate(payload: {
     mode?: string;
@@ -75,9 +75,12 @@ export default function AiGovernanceClient({
     if (!res.ok) {
       throw new Error(data.error || data.message || `HTTP ${res.status}`);
     }
-    setGov(data as AiGovernanceViewDto);
-    setConfThreshold((data as AiGovernanceViewDto).config.confidenceThreshold);
-    setFairnessThreshold((data as AiGovernanceViewDto).config.fairnessDisparityThreshold);
+    const updated = data as AiGovernanceViewDto;
+    setGov(updated);
+    if (updated?.config) {
+      setConfThreshold(updated.config.confidenceThreshold ?? 0.6);
+      setFairnessThreshold(updated.config.fairnessDisparityThreshold ?? 0.15);
+    }
   }
 
   async function handleConfirmModeSwitch() {
@@ -170,7 +173,7 @@ export default function AiGovernanceClient({
             Live AI Mode
           </div>
           <div className="text-lg font-bold text-violet-900">{currentMode}</div>
-          {gov?.config.updatedAt && (
+          {gov?.config?.updatedAt && (
             <div className="text-[11px] text-violet-700">
               Updated {new Date(gov.config.updatedAt).toLocaleString()}
             </div>
@@ -297,8 +300,8 @@ export default function AiGovernanceClient({
             <h2 className="text-base font-semibold text-slate-900">Override &amp; Agreement Analytics</h2>
             <p className="text-xs text-slate-500">
               {analytics
-                ? `${analytics.totalDecisions} human decisions analyzed · Overall agreement ${Math.round(
-                    analytics.overallAgreementRate * 100
+                ? `${analytics.totalDecisions ?? 0} human decisions analyzed · Overall agreement ${Math.round(
+                    (analytics.overallAgreementRate ?? 0) * 100
                   )}%`
                 : "No analytics loaded"}
             </p>
@@ -398,7 +401,7 @@ export default function AiGovernanceClient({
           <p className="mt-1 text-xs text-slate-500">
             Average AI confidence vs observed human agreement rate across confidence buckets.
           </p>
-          {!analytics || analytics.calibration.every((b) => b.count === 0) ? (
+          {!analytics || !Array.isArray(analytics.calibration) || analytics.calibration.every((b) => b.count === 0) ? (
             <div className="py-10 text-center text-sm text-slate-500">
               No calibrated decision buckets yet.
             </div>
@@ -447,7 +450,7 @@ export default function AiGovernanceClient({
             Flags groups whose Critical/High rate or agreement diverges by more than{" "}
             {Math.round((analytics?.fairnessDisparityThreshold ?? fairnessThreshold) * 100)}%.
           </p>
-          {!analytics || analytics.fairness.length === 0 ? (
+          {!analytics || !Array.isArray(analytics.fairness) || analytics.fairness.length === 0 ? (
             <div className="py-10 text-center text-sm text-slate-500">
               No requests available for fairness comparison yet.
             </div>
@@ -500,7 +503,7 @@ export default function AiGovernanceClient({
       {/* Audit History */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">Governance Audit Log</h2>
-        {!gov || gov.auditHistory.length === 0 ? (
+        {!gov || !Array.isArray(gov.auditHistory) || gov.auditHistory.length === 0 ? (
           <div className="py-6 text-center text-sm text-slate-500">
             No governance changes recorded yet.
           </div>
