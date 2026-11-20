@@ -189,17 +189,20 @@ public class WeatherAlertService : IWeatherAlertService
     private readonly IConfiguration _configuration;
     private readonly IAuditService _audit;
     private readonly ILogger<WeatherAlertService> _logger;
+    private readonly IEmailSender? _emailSender;
 
     public WeatherAlertService(
         AegisDbContext context,
         IConfiguration configuration,
         IAuditService audit,
-        ILogger<WeatherAlertService> logger)
+        ILogger<WeatherAlertService> logger,
+        IEmailSender? emailSender = null)
     {
         _context = context;
         _configuration = configuration;
         _audit = audit;
         _logger = logger;
+        _emailSender = emailSender;
     }
 
     public async Task<int> EvaluateAfterRiskRefreshAsync(CancellationToken ct = default)
@@ -501,14 +504,25 @@ public class WeatherAlertService : IWeatherAlertService
             return Result<bool>.Failure(preview.Error ?? "Failed to render preview.");
 
         var p = preview.Value;
+        var subject = $"[TEST] AEGIS Automated Weather Advisory ({p.District})";
         var body = $"[STAFF TEST]\n\nEN:\n{p.MessageEn}\n\nSI:\n{p.MessageSi}\n\nTA:\n{p.MessageTa}";
+        var html = $"<pre style=\"white-space:pre-wrap;font-family:sans-serif\">{System.Net.WebUtility.HtmlEncode(body)}</pre>";
+
+        if (_emailSender != null)
+        {
+            var sent = await _emailSender.SendEmailAsync(staff.Email, subject, body, html, ct);
+            if (!sent)
+                return Result<bool>.Failure("Test email delivery failed. Check /admin/system email health.");
+            return Result<bool>.Success(true);
+        }
+
         _context.NotificationOutboxes.Add(new NotificationOutbox
         {
             IdempotencyKey = $"test-auto-alert:{staffUserId}:{DateTime.UtcNow.Ticks}",
             Recipient = staff.Email,
             Channel = NotificationChannel.Email,
-            Subject = $"[TEST] AEGIS Automated Weather Advisory ({p.District})",
-            Payload = NotificationFactory.EncodeDualPayload(body, $"<pre style=\"white-space:pre-wrap;font-family:sans-serif\">{System.Net.WebUtility.HtmlEncode(body)}</pre>"),
+            Subject = subject,
+            Payload = NotificationFactory.EncodeDualPayload(body, html),
             Status = NotificationStatus.Pending,
             Attempts = 0,
             NextAttemptAt = DateTime.UtcNow

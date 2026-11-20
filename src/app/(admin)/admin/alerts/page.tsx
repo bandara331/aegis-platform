@@ -106,6 +106,9 @@ export default function AdminAlertsPage() {
   const [ruleReason, setRuleReason] = useState("");
   const [previewDistrict, setPreviewDistrict] = useState("Colombo");
   const [dryRun, setDryRun] = useState<DryRunPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ text: string; error?: boolean } | null>(null);
   const [retractTargetId, setRetractTargetId] = useState<string | null>(null);
   const [retractReason, setRetractReason] = useState("");
 
@@ -231,22 +234,36 @@ export default function AdminAlertsPage() {
 
   async function handleDryRun() {
     setMsg(null);
-    const res = await fetch(`/api/ops/alerts/automation/dry-run?district=${encodeURIComponent(previewDistrict)}`, {
-      method: "POST",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) setMsg({ text: data.error || "Dry-run preview failed.", error: true });
-    else setDryRun(data as DryRunPreview);
+    setTestResult(null);
+    setPreviewing(true);
+    try {
+      const res = await fetch(`/api/ops/alerts/automation/dry-run?district=${encodeURIComponent(previewDistrict)}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setTestResult({ text: data.error || "Dry-run preview failed.", error: true });
+      else setDryRun(data as DryRunPreview);
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   async function handleTestToMe() {
     setMsg(null);
-    const res = await fetch(`/api/ops/alerts/automation/test-me?district=${encodeURIComponent(previewDistrict)}`, {
-      method: "POST",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) setMsg({ text: data.error || "Failed to queue test email.", error: true });
-    else setMsg({ text: `Test advisory email queued to your account for ${previewDistrict}.` });
+    setTestResult(null);
+    setTesting(true);
+    try {
+      const res = await fetch(`/api/ops/alerts/automation/test-me?district=${encodeURIComponent(previewDistrict)}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setTestResult({ text: data.error || "Failed to send test email.", error: true });
+      else setTestResult({ text: `Test advisory email sent to your account for ${previewDistrict}.` });
+    } catch {
+      setTestResult({ text: "Network error while sending test email.", error: true });
+    } finally {
+      setTesting(false);
+    }
   }
 
   async function handleApprove(id: string) {
@@ -483,9 +500,18 @@ export default function AdminAlertsPage() {
               <select className="bento-select" style={{ width: "auto" }} value={previewDistrict} onChange={(e) => setPreviewDistrict(e.target.value)}>
                 {DISTRICTS.filter((d) => d !== "All Districts").map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
-              <Button type="button" variant="secondary" onClick={handleDryRun}>Dry-run preview</Button>
-              <Button type="button" onClick={handleTestToMe}>Send test to me</Button>
+              <Button type="button" variant="secondary" disabled={previewing} onClick={handleDryRun}>
+                {previewing ? "Previewing…" : "Dry-run preview"}
+              </Button>
+              <Button type="button" disabled={testing} onClick={handleTestToMe}>
+                {testing ? "Sending…" : "Send test to me"}
+              </Button>
             </div>
+            {testResult && (
+              <div style={{ marginTop: 12 }}>
+                <Toast tone={testResult.error ? "critical" : "success"}>{testResult.text}</Toast>
+              </div>
+            )}
             {dryRun && (
               <div style={{ marginTop: 14, display: "grid", gap: 8, padding: 14, borderRadius: 14, border: "1px solid var(--violet)", background: "var(--violet-tint)" }}>
                 <div className="mono" style={{ fontSize: 12 }}>

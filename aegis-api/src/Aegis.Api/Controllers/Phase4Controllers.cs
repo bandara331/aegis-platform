@@ -873,7 +873,7 @@ public class AlertsController : ControllerBase
         [FromServices] IWeatherAlertService svc,
         CancellationToken ct)
     {
-        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? string.Empty;
         var res = await svc.SendTestToStaffAsync(actorId, district, ct);
         return res.IsSuccess ? Ok(new { sent = true }) : BadRequest(new { error = res.Error });
     }

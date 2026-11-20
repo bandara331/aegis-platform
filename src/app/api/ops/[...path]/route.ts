@@ -54,3 +54,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pa
   const { path } = await params;
   return proxy(request, path);
 }
+
+export async function PUT(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxy(request, path);
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxy(request, path);
+}
