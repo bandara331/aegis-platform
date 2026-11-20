@@ -96,23 +96,58 @@ export default async function LandingPage() {
       {live.length > 0 && (
         <section
           aria-label="Live public statistics"
-          className="kpis"
           style={{
             position: "relative",
             zIndex: 2,
-            maxWidth: "1208px",
-            margin: "0 auto 20px",
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: "10px",
+            maxWidth: "900px",
+            margin: "0 auto 24px",
             padding: "0 16px",
-            gridTemplateColumns: `repeat(auto-fit, minmax(210px, 1fr))`,
           }}
         >
           {live.map((m) => (
-            <div className="kpi" key={m.label}>
-              <div className="kpi-top">
-                <span className="kpi-lbl">{m.label}</span>
-                <span className="tag tag-mint">Live</span>
-              </div>
-              <div className="kpi-num mono">{m.value}</div>
+            <div
+              key={m.label}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "8px 16px",
+                borderRadius: "999px",
+                background: "rgba(255, 255, 255, 0.84)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid var(--border-card)",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)" }}>
+                {m.label}
+              </span>
+              <span
+                className="mono"
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 800,
+                  color: "var(--ink)",
+                  paddingLeft: "6px",
+                  borderLeft: "1px solid rgba(15, 23, 42, 0.12)",
+                }}
+              >
+                {m.value}
+              </span>
             </div>
           ))}
         </section>
