@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Card, ErrorState, PageHeader, Tag } from "@/components/ui";
 import type {
   AiAnalyticsDto,
   AiBreakdownBucketDto,
@@ -152,49 +153,45 @@ export default function AiGovernanceClient({
           ? analytics?.byDistrict ?? []
           : analytics?.byCategory ?? [];
 
+  const modeTone = currentMode === "Active" ? "success" : currentMode === "Shadow" ? "warning" : "critical";
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-            <span className="h-2 w-2 rounded-full bg-violet-600" />
-            AI Governance &amp; Fairness
+    <div style={{ display: "grid", gap: "20px" }}>
+      <PageHeader
+        eyebrow="AI GOVERNANCE & FAIRNESS"
+        eyebrowTone="ai"
+        title="AI Controls, Calibration & Override Analytics"
+        subtitle="AI only recommends; humans decide. Every mode switch and threshold change is audited in PostgreSQL."
+        actions={
+          <div style={{ textAlign: "right" }}>
+            <Tag tone={modeTone} pulse={currentMode === "Active"}>
+              LIVE MODE · {currentMode.toUpperCase()}
+            </Tag>
+            {gov?.config?.updatedAt && (
+              <div className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
+                Updated {new Date(gov.config.updatedAt).toLocaleString()}
+              </div>
+            )}
           </div>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
-            AI Controls, Calibration &amp; Override Analytics
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            AI only recommends; humans decide. Every mode switch and threshold change is audited in PostgreSQL.
-          </p>
-        </div>
+        }
+      />
 
-        <div className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-2.5 text-right">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-violet-700">
-            Live AI Mode
-          </div>
-          <div className="text-lg font-bold text-violet-900">{currentMode}</div>
-          {gov?.config?.updatedAt && (
-            <div className="text-[11px] text-violet-700">
-              Updated {new Date(gov.config.updatedAt).toLocaleString()}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {/* Mode Switch + Threshold Settings */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Operating Mode (Kill Switch)</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Takes effect immediately for all incoming assistance requests.
-          </p>
-          <div className="mt-4 grid gap-3">
+      <div className="bento-grid cols-2">
+        <Card aiHighlight>
+          <div style={{ marginBottom: 14 }}>
+            <Tag tone="ai">OPERATING MODE (KILL SWITCH)</Tag>
+            <h2 style={{ margin: "8px 0 4px", fontSize: 18, fontWeight: 700 }}>
+              Triage Operating Mode
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              Takes effect immediately for all incoming assistance requests.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gap: 10 }}>
             {MODES.map((m) => {
               const active = currentMode === m.value;
               return (
@@ -204,39 +201,51 @@ export default function AiGovernanceClient({
                   onClick={() => {
                     if (!active) setPendingMode(m.value);
                   }}
-                  className={`rounded-xl border p-3.5 text-left transition ${
-                    active
-                      ? "border-violet-500 bg-violet-50/80 ring-1 ring-violet-500"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                  style={{
+                    textAlign: "left",
+                    padding: "14px 16px",
+                    borderRadius: "var(--r-md)",
+                    border: active ? "2px solid var(--violet)" : "1px solid var(--border-card)",
+                    background: active ? "var(--violet-tint)" : "rgba(255,255,255,0.72)",
+                    cursor: active ? "default" : "pointer",
+                    transition: "all 0.15s ease",
+                  }}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-900">{m.title}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <strong style={{ fontSize: 14, color: "var(--ink)" }}>{m.title}</strong>
                     {active ? (
-                      <span className="rounded-full bg-violet-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-                        Active Setting
-                      </span>
+                      <Tag tone="ai">ACTIVE SETTING</Tag>
                     ) : (
-                      <span className="text-xs font-medium text-slate-500">Switch &rarr;</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--teal)" }}>
+                        Switch &rarr;
+                      </span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">{m.desc}</p>
+                  <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
+                    {m.desc}
+                  </p>
                 </button>
               );
             })}
           </div>
-        </section>
+        </Card>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Confidence &amp; Fairness Thresholds</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Requests below confidence threshold are flagged &ldquo;Needs human review&rdquo; with suggested actions hidden.
-          </p>
-          <form onSubmit={handleSaveThresholds} className="mt-4 space-y-4">
+        <Card>
+          <div style={{ marginBottom: 14 }}>
+            <Tag tone="ai">CALIBRATION GATES</Tag>
+            <h2 style={{ margin: "8px 0 4px", fontSize: 18, fontWeight: 700 }}>
+              Confidence &amp; Fairness Thresholds
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              Requests below confidence threshold are flagged &ldquo;Needs human review&rdquo; with suggested actions hidden.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveThresholds} style={{ display: "grid", gap: 16 }}>
             <div>
-              <div className="flex items-center justify-between text-xs font-medium text-slate-700">
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600 }}>
                 <span>Minimum Confidence Threshold</span>
-                <span className="font-mono font-semibold text-violet-700">
+                <span className="mono" style={{ color: "var(--violet)" }}>
                   {Math.round(confThreshold * 100)}%
                 </span>
               </div>
@@ -247,14 +256,14 @@ export default function AiGovernanceClient({
                 step={0.05}
                 value={confThreshold}
                 onChange={(e) => setConfThreshold(parseFloat(e.target.value))}
-                className="mt-2 w-full accent-violet-600"
+                style={{ width: "100%", marginTop: 8, accentColor: "var(--violet)" }}
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between text-xs font-medium text-slate-700">
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600 }}>
                 <span>Fairness Disparity Alert Threshold</span>
-                <span className="font-mono font-semibold text-violet-700">
+                <span className="mono" style={{ color: "var(--violet)" }}>
                   {Math.round(fairnessThreshold * 100)}%
                 </span>
               </div>
@@ -265,40 +274,44 @@ export default function AiGovernanceClient({
                 step={0.05}
                 value={fairnessThreshold}
                 onChange={(e) => setFairnessThreshold(parseFloat(e.target.value))}
-                className="mt-2 w-full accent-violet-600"
+                style={{ width: "100%", marginTop: 8, accentColor: "var(--violet)" }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700">
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>
                 Audit Reason (required)
               </label>
               <input
                 type="text"
+                className="input"
                 value={thresholdReason}
                 onChange={(e) => setThresholdReason(e.target.value)}
                 placeholder="e.g. Tightening review gate during peak flood intake"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-violet-500 focus:outline-none"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={savingThresholds}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              {savingThresholds ? "Saving..." : "Save Thresholds"}
-            </button>
+            <div>
+              <button
+                type="submit"
+                disabled={savingThresholds}
+                className="btn btn-primary btn-sm"
+              >
+                {savingThresholds ? "Saving..." : "Save Thresholds"}
+              </button>
+            </div>
           </form>
-        </section>
+        </Card>
       </div>
 
       {/* Override Analytics */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Override &amp; Agreement Analytics</h2>
-            <p className="text-xs text-slate-500">
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+              Override &amp; Agreement Analytics
+            </h2>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
               {analytics
                 ? `${analytics.totalDecisions ?? 0} human decisions analyzed · Overall agreement ${Math.round(
                     (analytics.overallAgreementRate ?? 0) * 100
@@ -306,42 +319,41 @@ export default function AiGovernanceClient({
                 : "No analytics loaded"}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <input
               type="date"
+              className="input"
+              style={{ width: "auto", minHeight: 36, padding: "4px 10px", fontSize: 12.5 }}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800"
             />
-            <span className="text-xs text-slate-400">to</span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>to</span>
             <input
               type="date"
+              className="input"
+              style={{ width: "auto", minHeight: 36, padding: "4px 10px", fontSize: 12.5 }}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800"
             />
             <button
               type="button"
               onClick={refreshAnalytics}
               disabled={loadingAnalytics}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="btn btn-ghost btn-sm"
             >
               {loadingAnalytics ? "Loading..." : "Apply"}
             </button>
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2 border-b border-slate-200 pb-2">
+        <div className="pills" style={{ marginTop: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-card)" }}>
           {(["day", "language", "district", "category"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${
-                activeTab === tab
-                  ? "bg-violet-600 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
+              className={`pill ${activeTab === tab ? "on" : ""}`}
+              style={{ textTransform: "capitalize" }}
             >
               By {tab}
             </button>
@@ -349,147 +361,122 @@ export default function AiGovernanceClient({
         </div>
 
         {breakdownRows.length === 0 ? (
-          <div className="py-10 text-center text-sm text-slate-500">
+          <div style={{ padding: "36px 12px", textAlign: "center", fontSize: 14, color: "var(--muted)" }}>
             No human triage decisions recorded in this period yet.
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
             {breakdownRows.map((row) => {
               const total = Math.max(1, row.total);
               return (
-                <div key={row.key} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-800">{row.key}</span>
-                    <span className="text-slate-500">
+                <div key={row.key} style={{ display: "grid", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, gap: 8, flexWrap: "wrap" }}>
+                    <strong style={{ color: "var(--ink)" }}>{row.key}</strong>
+                    <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>
                       {row.approved} approved · {row.modified} modified · {row.rejected} rejected ·{" "}
-                      {row.deferred} deferred ({Math.round(row.agreementRate * 100)}% agreement)
+                      {row.deferred} deferred ({Math.round((row.agreementRate ?? 0) * 100)}% agreement)
                     </span>
                   </div>
-                  <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      style={{ width: `${(row.approved / total) * 100}%` }}
-                      className="bg-emerald-600"
-                      title={`Approved: ${row.approved}`}
-                    />
-                    <div
-                      style={{ width: `${(row.modified / total) * 100}%` }}
-                      className="bg-amber-500"
-                      title={`Modified: ${row.modified}`}
-                    />
-                    <div
-                      style={{ width: `${(row.rejected / total) * 100}%` }}
-                      className="bg-rose-500"
-                      title={`Rejected: ${row.rejected}`}
-                    />
-                    <div
-                      style={{ width: `${(row.deferred / total) * 100}%` }}
-                      className="bg-slate-400"
-                      title={`Deferred: ${row.deferred}`}
-                    />
+                  <div
+                    style={{
+                      display: "flex",
+                      height: 10,
+                      width: "100%",
+                      overflow: "hidden",
+                      borderRadius: 999,
+                      background: "rgba(15, 23, 42, 0.08)",
+                    }}
+                  >
+                    <div style={{ width: `${(row.approved / total) * 100}%`, background: "#059669" }} title={`Approved: ${row.approved}`} />
+                    <div style={{ width: `${(row.modified / total) * 100}%`, background: "#d97706" }} title={`Modified: ${row.modified}`} />
+                    <div style={{ width: `${(row.rejected / total) * 100}%`, background: "#e11d48" }} title={`Rejected: ${row.rejected}`} />
+                    <div style={{ width: `${(row.deferred / total) * 100}%`, background: "#94a3b8" }} title={`Deferred: ${row.deferred}`} />
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-      </section>
+      </Card>
 
       {/* Calibration + Fairness */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Confidence Calibration</h2>
-          <p className="mt-1 text-xs text-slate-500">
+      <div className="bento-grid cols-2">
+        <Card>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Confidence Calibration</h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
             Average AI confidence vs observed human agreement rate across confidence buckets.
           </p>
           {!analytics || !Array.isArray(analytics.calibration) || analytics.calibration.every((b) => b.count === 0) ? (
-            <div className="py-10 text-center text-sm text-slate-500">
+            <div style={{ padding: "36px 12px", textAlign: "center", fontSize: 14, color: "var(--muted)" }}>
               No calibrated decision buckets yet.
             </div>
           ) : (
-            <div className="mt-4 space-y-3">
+            <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
               {analytics.calibration.map((b) => (
-                <div key={b.rangeLabel} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-mono font-semibold text-slate-800">{b.rangeLabel}</span>
-                    <span className="text-slate-500">
+                <div key={b.rangeLabel} style={{ display: "grid", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
+                    <span className="mono" style={{ fontWeight: 700 }}>{b.rangeLabel}</span>
+                    <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>
                       n={b.count} · Conf {Math.round(b.avgConfidence * 100)}% vs Agree{" "}
                       {Math.round(b.agreementRate * 100)}%
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="h-2 w-full rounded-full bg-slate-100">
-                      <div
-                        style={{ width: `${Math.round(b.avgConfidence * 100)}%` }}
-                        className="h-2 rounded-full bg-violet-500"
-                      />
+                  <div style={{ display: "grid", gap: 4 }}>
+                    <div style={{ height: 8, width: "100%", borderRadius: 999, background: "rgba(15,23,42,0.08)" }}>
+                      <div style={{ height: 8, width: `${Math.round(b.avgConfidence * 100)}%`, borderRadius: 999, background: "var(--violet)" }} />
                     </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100">
-                      <div
-                        style={{ width: `${Math.round(b.agreementRate * 100)}%` }}
-                        className="h-2 rounded-full bg-emerald-600"
-                      />
+                    <div style={{ height: 8, width: "100%", borderRadius: 999, background: "rgba(15,23,42,0.08)" }}>
+                      <div style={{ height: 8, width: `${Math.round(b.agreementRate * 100)}%`, borderRadius: 999, background: "#059669" }} />
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="flex items-center gap-4 pt-2 text-[11px] text-slate-500">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-violet-500" /> AI Confidence
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-600" /> Human Agreement
-                </span>
+              <div style={{ display: "flex", gap: 16, paddingTop: 6, fontSize: 11.5, color: "var(--muted)" }}>
+                <span>● AI Confidence (violet)</span>
+                <span>● Human Agreement (green)</span>
               </div>
             </div>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Fairness Check (Language &amp; District)</h2>
-          <p className="mt-1 text-xs text-slate-500">
+        <Card>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+            Fairness Check (Language &amp; District)
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
             Flags groups whose Critical/High rate or agreement diverges by more than{" "}
             {Math.round((analytics?.fairnessDisparityThreshold ?? fairnessThreshold) * 100)}%.
           </p>
           {!analytics || !Array.isArray(analytics.fairness) || analytics.fairness.length === 0 ? (
-            <div className="py-10 text-center text-sm text-slate-500">
+            <div style={{ padding: "36px 12px", textAlign: "center", fontSize: 14, color: "var(--muted)" }}>
               No requests available for fairness comparison yet.
             </div>
           ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div style={{ marginTop: 14, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 12.5 }}>
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-500">
-                    <th className="py-2 pr-3 font-semibold">Group</th>
-                    <th className="py-2 pr-3 font-semibold">Requests</th>
-                    <th className="py-2 pr-3 font-semibold">High/Crit</th>
-                    <th className="py-2 pr-3 font-semibold">Disparity</th>
-                    <th className="py-2 font-semibold">Status</th>
+                  <tr style={{ borderBottom: "1px solid var(--border-card)", color: "var(--muted)" }}>
+                    <th style={{ padding: "8px 10px 8px 0" }}>Group</th>
+                    <th style={{ padding: "8px 10px" }}>Requests</th>
+                    <th style={{ padding: "8px 10px" }}>High/Crit</th>
+                    <th style={{ padding: "8px 10px" }}>Disparity</th>
+                    <th style={{ padding: "8px 0" }}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {analytics.fairness.map((row) => (
-                    <tr key={`${row.dimension}:${row.group}`}>
-                      <td className="py-2 pr-3 font-medium text-slate-800">
-                        <span className="text-slate-400">{row.dimension}: </span>
+                    <tr key={`${row.dimension}:${row.group}`} style={{ borderBottom: "1px solid rgba(15,23,42,0.06)" }}>
+                      <td style={{ padding: "8px 10px 8px 0", fontWeight: 600 }}>
+                        <span style={{ color: "var(--muted)", fontWeight: 400 }}>{row.dimension}: </span>
                         {row.group}
                       </td>
-                      <td className="py-2 pr-3 text-slate-700">{row.totalRequests}</td>
-                      <td className="py-2 pr-3 text-slate-700">
-                        {Math.round(row.criticalOrHighRate * 100)}%
-                      </td>
-                      <td className="py-2 pr-3 font-mono text-slate-700">
-                        {Math.round(row.disparityFromMean * 100)}%
-                      </td>
-                      <td className="py-2">
-                        {row.flagged ? (
-                          <span className="rounded-full bg-rose-100 px-2 py-0.5 font-semibold text-rose-700">
-                            Flagged
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">
-                            Balanced
-                          </span>
-                        )}
+                      <td style={{ padding: "8px 10px" }}>{row.totalRequests}</td>
+                      <td style={{ padding: "8px 10px" }}>{Math.round(row.criticalOrHighRate * 100)}%</td>
+                      <td className="mono" style={{ padding: "8px 10px" }}>{Math.round(row.disparityFromMean * 100)}%</td>
+                      <td style={{ padding: "8px 0" }}>
+                        <Tag tone={row.flagged ? "critical" : "success"}>
+                          {row.flagged ? "Flagged" : "Balanced"}
+                        </Tag>
                       </td>
                     </tr>
                   ))}
@@ -497,74 +484,88 @@ export default function AiGovernanceClient({
               </table>
             </div>
           )}
-        </section>
+        </Card>
       </div>
 
       {/* Audit History */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Governance Audit Log</h2>
+      <Card>
+        <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 700 }}>Governance Audit Log</h2>
         {!gov || !Array.isArray(gov.auditHistory) || gov.auditHistory.length === 0 ? (
-          <div className="py-6 text-center text-sm text-slate-500">
+          <div style={{ padding: "24px 12px", textAlign: "center", fontSize: 14, color: "var(--muted)" }}>
             No governance changes recorded yet.
           </div>
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 12.5 }}>
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 pr-3 font-semibold">Seq</th>
-                  <th className="py-2 pr-3 font-semibold">Actor</th>
-                  <th className="py-2 pr-3 font-semibold">Timestamp (UTC)</th>
-                  <th className="py-2 font-semibold">Change Details</th>
+                <tr style={{ borderBottom: "1px solid var(--border-card)", color: "var(--muted)" }}>
+                  <th style={{ padding: "8px 10px 8px 0" }}>Seq</th>
+                  <th style={{ padding: "8px 10px" }}>Actor</th>
+                  <th style={{ padding: "8px 10px" }}>Timestamp (UTC)</th>
+                  <th style={{ padding: "8px 0" }}>Change Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {gov.auditHistory.map((ev) => (
-                  <tr key={ev.sequenceNumber}>
-                    <td className="py-2 pr-3 font-mono text-slate-600">#{ev.sequenceNumber}</td>
-                    <td className="py-2 pr-3 font-medium text-slate-800">{ev.actorId}</td>
-                    <td className="py-2 pr-3 text-slate-600">
+                  <tr key={ev.sequenceNumber} style={{ borderBottom: "1px solid rgba(15,23,42,0.06)" }}>
+                    <td className="mono" style={{ padding: "8px 10px 8px 0" }}>#{ev.sequenceNumber}</td>
+                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{ev.actorId}</td>
+                    <td style={{ padding: "8px 10px", color: "var(--muted)" }}>
                       {new Date(ev.timestampUtc).toLocaleString()}
                     </td>
-                    <td className="py-2 font-mono text-[11px] text-slate-600">{ev.detailsJson}</td>
+                    <td className="mono" style={{ padding: "8px 0", fontSize: 11.5, color: "var(--muted)" }}>
+                      {ev.detailsJson}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </section>
+      </Card>
 
       {/* Confirm Mode Modal */}
       {pendingMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(15, 23, 42, 0.55)",
+            backdropFilter: "blur(6px)",
+            padding: 16,
+          }}
+        >
+          <Card style={{ width: "100%", maxWidth: 460 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
               Switch AI Mode to {pendingMode}?
             </h3>
-            <p className="mt-1 text-sm text-slate-600">
+            <p style={{ margin: "6px 0 14px", fontSize: 13.5, color: "var(--muted)" }}>
               This takes effect immediately and will be recorded in the immutable audit log.
             </p>
-            <div className="mt-4">
-              <label className="block text-xs font-semibold text-slate-700">
+            <div>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>
                 Reason for mode change (required)
               </label>
               <textarea
                 rows={3}
+                className="textarea"
                 value={modalReason}
                 onChange={(e) => setModalReason(e.target.value)}
                 placeholder="Explain why AI mode is being changed..."
-                className="mt-1 w-full rounded-lg border border-slate-300 p-2.5 text-sm text-slate-900 focus:border-violet-500 focus:outline-none"
               />
             </div>
-            <div className="mt-5 flex justify-end gap-2">
+            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 type="button"
                 onClick={() => {
                   setPendingMode(null);
                   setModalReason("");
                 }}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="btn btn-ghost btn-sm"
               >
                 Cancel
               </button>
@@ -572,12 +573,12 @@ export default function AiGovernanceClient({
                 type="button"
                 disabled={savingMode || modalReason.trim().length < 5}
                 onClick={handleConfirmModeSwitch}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                className="btn btn-primary btn-sm"
               >
                 {savingMode ? "Switching..." : `Confirm ${pendingMode}`}
               </button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
