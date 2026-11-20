@@ -203,10 +203,30 @@ export default function AdminDonationsPage() {
         <div className="bento-grid cols-2">
           {campaigns.map((c) => (
             <Card key={c.id}>
-              <b>{c.title}</b>
-              <div className="muted" style={{ fontSize: 13, margin: "4px 0 8px" }}>{c.description}</div>
-              <div className="mono" style={{ fontSize: 13 }}>
-                Raised: <b>LKR {Number(c.currentAmount).toLocaleString()}</b> / {Number(c.targetAmount).toLocaleString()}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <b>{c.title}</b>
+                  <div className="muted" style={{ fontSize: 13, margin: "4px 0 8px" }}>{c.description}</div>
+                  <div className="mono" style={{ fontSize: 13 }}>
+                    Raised: <b>LKR {Number(c.currentAmount).toLocaleString()}</b> / {Number(c.targetAmount).toLocaleString()}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={async () => {
+                    if (!window.confirm(`Delete campaign "${c.title}"?`)) return;
+                    const res = await fetch(`/api/ops/campaigns/${c.id}`, { method: "DELETE" });
+                    if (res.ok) {
+                      setMsg({ text: `Campaign "${c.title}" deleted.` });
+                      await loadAll();
+                    } else {
+                      setMsg({ text: "Failed to delete campaign.", error: true });
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
             </Card>
           ))}
@@ -259,14 +279,32 @@ export default function AdminDonationsPage() {
                       )}
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                      {d.flagged && d.reviewStatus !== "Rejected" ? (
-                        <div style={{ display: "inline-flex", gap: 6 }}>
-                          <Button type="button" onClick={() => handleReview(d.id, true)}>Approve</Button>
-                          <Button type="button" variant="secondary" onClick={() => handleReview(d.id, false)}>Reject</Button>
-                        </div>
-                      ) : (
-                        <span className="muted mono" style={{ fontSize: 12 }}>{d.reviewNotes || "—"}</span>
-                      )}
+                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                        {d.flagged && d.reviewStatus !== "Rejected" ? (
+                          <>
+                            <Button type="button" onClick={() => handleReview(d.id, true)}>Approve</Button>
+                            <Button type="button" variant="secondary" onClick={() => handleReview(d.id, false)}>Reject</Button>
+                          </>
+                        ) : (
+                          <span className="muted mono" style={{ fontSize: 12 }}>{d.reviewNotes || "—"}</span>
+                        )}
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={async () => {
+                            if (!window.confirm(`Delete donation from "${d.donorName}"?`)) return;
+                            const res = await fetch(`/api/ops/donations/${d.id}`, { method: "DELETE" });
+                            if (res.ok) {
+                              setMsg({ text: "Donation deleted." });
+                              await loadAll();
+                            } else {
+                              setMsg({ text: "Failed to delete donation.", error: true });
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

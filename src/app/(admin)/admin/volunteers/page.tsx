@@ -202,11 +202,29 @@ export default function AdminVolunteersPage() {
                       {v.maskedNic || "Not provided"}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      {v.isVerified ? (
-                        <Tag tone="success">Verified</Tag>
-                      ) : (
-                        <Button type="button" onClick={() => handleVerify(v.id)}>Verify volunteer</Button>
-                      )}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        {v.isVerified ? (
+                          <Tag tone="success">Verified</Tag>
+                        ) : (
+                          <Button type="button" onClick={() => handleVerify(v.id)}>Verify volunteer</Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={async () => {
+                            if (!window.confirm(`Delete volunteer "${v.fullName}"?`)) return;
+                            const res = await fetch(`/api/ops/volunteers/${v.id}`, { method: "DELETE" });
+                            if (res.ok) {
+                              setMsg({ text: `Volunteer "${v.fullName}" deleted.` });
+                              await loadAll();
+                            } else {
+                              setMsg({ text: "Failed to delete volunteer.", error: true });
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

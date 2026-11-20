@@ -289,9 +289,28 @@ export function DispatchClient({ googleMapsApiKey }: { googleMapsApiKey?: string
         ) : (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {vehicles.map((v) => (
-              <div key={v.id} style={{ border: "1px solid var(--border-card)", borderRadius: 12, padding: "10px 14px", fontSize: 12.5 }}>
-                <b>{v.name}</b> <Tag>{v.vehicleType}</Tag>
-                <div className="muted">Cap: {v.capacity} · {v.availability} · {v.assignedDriverName || "No driver"}</div>
+              <div key={v.id} style={{ border: "1px solid var(--border-card)", borderRadius: 12, padding: "10px 14px", fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div>
+                  <b>{v.name}</b> <Tag>{v.vehicleType}</Tag>
+                  <div className="muted">Cap: {v.capacity} · {v.availability} · {v.assignedDriverName || "No driver"}</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: "#DC2626" }}
+                  onClick={async () => {
+                    if (!window.confirm(`Delete vehicle "${v.name}"?`)) return;
+                    const res = await fetch(`/api/ops/dispatch/vehicles/${v.id}`, { method: "DELETE" });
+                    if (res.ok) {
+                      setMsg({ text: `Vehicle "${v.name}" deleted.` });
+                      await loadVehicles();
+                    } else {
+                      setMsg({ text: "Failed to delete vehicle.", error: true });
+                    }
+                  }}
+                >
+                  Delete
+                </button>
               </div>
             ))}
           </div>

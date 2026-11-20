@@ -397,6 +397,24 @@ public class RequestsController : ControllerBase
             : Ok(result.Value);
     }
 
+    [HttpDelete("{idOrTracking}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Delete(
+        string idOrTracking,
+        [FromServices] Aegis.Infrastructure.Persistence.AegisDbContext db,
+        [FromServices] Aegis.Domain.Interfaces.IAuditService audit,
+        CancellationToken ct)
+    {
+        var isGuid = Guid.TryParse(idOrTracking, out var guid);
+        var req = await db.AssistanceRequests.FirstOrDefaultAsync(r => isGuid ? r.Id == guid : r.TrackingNumber == idOrTracking, ct);
+        if (req == null) return NotFound();
+        req.IsDeleted = true;
+        req.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.AppendAsync("AssistanceRequest", req.Id.ToString(), "Delete", UserId ?? "staff", PrimaryRole, new { req.TrackingNumber }, ct);
+        return NoContent();
+    }
+
     private string? UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
     private string PrimaryRole => User.IsInRole(AegisRoles.Citizen) && User.FindAll(ClaimTypes.Role).Count() == 1
         ? AegisRoles.Citizen

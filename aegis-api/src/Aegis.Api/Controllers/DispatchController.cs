@@ -73,6 +73,18 @@ public class DispatchController : ControllerBase
         return Ok(new VehicleDto(v.Id, v.Name, v.VehicleType, v.Capacity, v.CurrentLatitude, v.CurrentLongitude, v.AssignedVolunteerId, v.AssignedDriverName, v.Availability, v.Skills));
     }
 
+    [HttpDelete("vehicles/{id:guid}")]
+    public async Task<IActionResult> DeleteVehicle(Guid id, CancellationToken ct)
+    {
+        var v = await _context.Vehicles.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (v == null) return NotFound();
+        v.IsDeleted = true;
+        v.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("Vehicle", id.ToString(), "Delete", CurrentUserId, "LogisticsManager", new { v.Name }, ct);
+        return NoContent();
+    }
+
     [HttpPost("plan")]
     public async Task<IActionResult> GeneratePlan([FromBody] DispatchPlanRequestDto? dto, CancellationToken ct)
     {

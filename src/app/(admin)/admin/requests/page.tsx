@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getQueue, type QueueItem } from "@/lib/api";
 import { DataTable, ErrorState, PageHeader, Tag } from "@/components/ui";
 import { getDictionary } from "@/lib/i18n/dictionary";
+import { DeleteRequestButton } from "./DeleteRequestButton";
 
 export default async function AdminRequestsListPage() {
   const dict = getDictionary("en");
@@ -43,6 +44,7 @@ export default async function AdminRequestsListPage() {
               render: (r) => <Tag tone="ai">AI · {r.score}%</Tag>,
             },
             { key: "status", header: "Status", render: (r) => <Tag>{r.status}</Tag> },
+            { key: "actions", header: "Actions", render: (r) => <DeleteRequestButton id={r.id} /> },
           ]}
         />
       )}

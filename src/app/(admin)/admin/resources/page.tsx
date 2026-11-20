@@ -310,6 +310,22 @@ export default function AdminResourcesPage() {
                           <Button type="button" onClick={() => handleDispatch(r.id)} disabled={requests.length === 0}>
                             Dispatch
                           </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            onClick={async () => {
+                              if (!window.confirm(`Delete resource "${r.itemName}"?`)) return;
+                              const res = await fetch(`/api/ops/resources/${r.id}`, { method: "DELETE" });
+                              if (res.ok) {
+                                setMsg({ text: `Resource "${r.itemName}" deleted.` });
+                                await loadAll();
+                              } else {
+                                setMsg({ text: "Failed to delete resource.", error: true });
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     </tr>

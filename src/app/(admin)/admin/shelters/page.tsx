@@ -294,6 +294,7 @@ export default function AdminSheltersPage() {
                   <th className="mono" style={{ padding: "12px 16px", textAlign: "left", fontSize: 11 }}>CONTACT</th>
                   <th className="mono" style={{ padding: "12px 16px", textAlign: "left", fontSize: 11 }}>ALLOCATE PERSONS</th>
                   <th className="mono" style={{ padding: "12px 16px", textAlign: "left", fontSize: 11 }}>SET OCCUPANCY</th>
+                  <th className="mono" style={{ padding: "12px 16px", textAlign: "right", fontSize: 11 }}>DELETE</th>
                 </tr>
               </thead>
               <tbody>
@@ -337,6 +338,24 @@ export default function AdminSheltersPage() {
                         />
                         <Button type="button" variant="secondary" onClick={() => handleUpdateOccupancy(s.id)}>Update</Button>
                       </div>
+                    </td>
+                    <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={async () => {
+                          if (!window.confirm(`Delete shelter "${s.name}"?`)) return;
+                          const res = await fetch(`/api/ops/shelters/${s.id}`, { method: "DELETE" });
+                          if (res.ok) {
+                            setActionMsg({ text: `Shelter "${s.name}" deleted.` });
+                            await loadShelters();
+                          } else {
+                            setActionMsg({ text: "Failed to delete shelter.", error: true });
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </td>
                   </tr>
                 ))}

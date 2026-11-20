@@ -180,6 +180,28 @@ export default function AdminAlertsPage() {
     }
   }
 
+  async function handleDeleteOfficial(id: string) {
+    if (!window.confirm("Delete this official alert?")) return;
+    setMsg(null);
+    const res = await fetch(`/api/ops/alerts/${id}`, { method: "DELETE" });
+    if (!res.ok) setMsg({ text: "Failed to delete alert.", error: true });
+    else {
+      setMsg({ text: "Official alert deleted." });
+      await loadAlerts();
+    }
+  }
+
+  async function handleDeleteAutomated(id: string) {
+    if (!window.confirm("Delete this automated alert?")) return;
+    setMsg(null);
+    const res = await fetch(`/api/ops/alerts/automation/${id}`, { method: "DELETE" });
+    if (!res.ok) setMsg({ text: "Failed to delete automated alert.", error: true });
+    else {
+      setMsg({ text: "Automated alert deleted." });
+      await loadAlerts();
+    }
+  }
+
   async function handleConfirmModeSwitch() {
     if (!pendingMode || modeReason.trim().length < 5) return;
     setMsg(null);
@@ -415,11 +437,16 @@ export default function AdminAlertsPage() {
                           {a.expiresAtUtc ? ` · Expires ${new Date(a.expiresAtUtc).toLocaleString()}` : ""}
                         </div>
                       </div>
-                      {!expired && (
-                        <Button type="button" variant="secondary" onClick={() => handleExpire(a.id)}>
-                          Expire alert
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {!expired && (
+                          <Button type="button" variant="secondary" onClick={() => handleExpire(a.id)}>
+                            Expire alert
+                          </Button>
+                        )}
+                        <Button type="button" variant="danger" onClick={() => handleDeleteOfficial(a.id)}>
+                          Delete
                         </Button>
-                      )}
+                      </div>
                     </div>
                   </Card>
                 );
@@ -603,6 +630,7 @@ export default function AdminAlertsPage() {
                           {!a.isFalseAlarm && (
                             <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleMarkFalseAlarm(a.id)}>Not accurate</button>
                           )}
+                          <button type="button" className="btn btn-ghost btn-sm" style={{ color: "#DC2626" }} onClick={() => handleDeleteAutomated(a.id)}>Delete</button>
                         </td>
                       </tr>
                     ))}

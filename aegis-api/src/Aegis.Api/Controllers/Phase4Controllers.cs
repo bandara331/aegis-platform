@@ -124,6 +124,26 @@ public class SheltersController : ControllerBase
         }
         return Ok(result.Value);
     }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] AegisDbContext db,
+        [FromServices] IAuditService audit,
+        CancellationToken ct)
+    {
+        var item = await db.Shelters.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.AppendAsync("Shelter", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "ShelterAdmin",
+            new { item.Name }, ct);
+        return NoContent();
+    }
 }
 
 [ApiController]
@@ -165,6 +185,26 @@ public class ResourcesController : ControllerBase
             });
         }
         return Ok(result.Value);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] AegisDbContext db,
+        [FromServices] IAuditService audit,
+        CancellationToken ct)
+    {
+        var item = await db.Resources.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.AppendAsync("Resource", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "LogisticsManager",
+            new { item.ItemName, item.Depot }, ct);
+        return NoContent();
     }
 }
 
@@ -539,6 +579,22 @@ public class VolunteersController : ControllerBase
 
         return Ok(assignment);
     }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var item = await _context.Volunteers.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("Volunteer", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "VolunteerCoordinator",
+            new { item.FullName }, ct);
+        return NoContent();
+    }
 }
 
 [ApiController]
@@ -702,6 +758,38 @@ public class DonationsAndCampaignsController : ControllerBase
         return Ok(new DonationResponseDto(
             donation.Id, donation.CampaignId, donation.DonorName, donation.Amount, donation.Currency, donation.Flagged, donation.FlagReason, donation.CreatedAt, donation.ReviewStatus, donation.ReviewNotes
         ));
+    }
+
+    [HttpDelete("campaigns/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> DeleteCampaign(Guid id, CancellationToken ct)
+    {
+        var item = await _context.Campaigns.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("Campaign", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "DonorOfficer",
+            new { item.Title }, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("donations/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> DeleteDonation(Guid id, CancellationToken ct)
+    {
+        var item = await _context.Donations.FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("Donation", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "DonorOfficer",
+            new { item.DonorName, item.Amount }, ct);
+        return NoContent();
     }
 }
 
@@ -888,5 +976,37 @@ public class AlertsController : ControllerBase
         await predictor.RefreshDistrictRiskAsync(ct);
         var created = await svc.EvaluateAfterRiskRefreshAsync(ct);
         return Ok(new { created });
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> DeleteOfficialAlert(Guid id, CancellationToken ct)
+    {
+        var item = await _context.OfficialAlerts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("OfficialAlert", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator",
+            new { item.Title }, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("automation/{id:guid}")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> DeleteAutomatedAlert(Guid id, CancellationToken ct)
+    {
+        var item = await _context.AutomatedAlerts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (item == null) return NotFound();
+        item.IsDeleted = true;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        await _audit.AppendAsync("AutomatedAlert", id.ToString(), "Delete",
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff",
+            User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator",
+            new { item.District, item.TriggeredLevel }, ct);
+        return NoContent();
     }
 }
