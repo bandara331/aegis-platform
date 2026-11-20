@@ -4,6 +4,7 @@ import {
   getKpis,
   getPendingRecommendations,
   getQueue,
+  getRequests,
   getShelters,
   getStockForecasts,
   type QueueItem,
@@ -11,6 +12,7 @@ import {
 import { Icon } from "@/components/icons/Icon";
 import { EmptyState, ErrorState } from "@/components/ui";
 import { AiSuggestionPanel } from "./AiSuggestionPanel";
+import { AdminOverviewLiveMap } from "./AdminOverviewLiveMap";
 
 const SPARK_COLORS = ["#FF5A4F", "#FFC94A", "#7C3AED", "#2FD6A3"];
 const SPARK_FILLS = ["#FFE7E4", "#FFF3D1", "#ECE7FF", "#D9F8EE"];
@@ -45,9 +47,10 @@ function KanbanCard({ item, highlighted }: { item: QueueItem; highlighted?: bool
 }
 
 export default async function AdminOverviewPage() {
-  const [kpiRes, queueRes, recsRes, sheltersRes, forecastRes] = await Promise.all([
+  const [kpiRes, queueRes, requestsRes, recsRes, sheltersRes, forecastRes] = await Promise.all([
     getKpis(),
     getQueue(),
+    getRequests(),
     getPendingRecommendations(),
     getShelters(),
     getStockForecasts(),
@@ -272,54 +275,27 @@ export default async function AdminOverviewPage() {
             </div>
           </div>
           <div className="map-canvas">
-            <svg viewBox="0 0 800 220" preserveAspectRatio="none">
-              <rect width="800" height="220" fill="#E6EEF6" />
-              <path
-                d="M0 150 Q 180 110 340 155 T 680 130 L 800 140 L 800 220 L 0 220 Z"
-                fill="#B8DFEC"
-                opacity=".7"
-              />
-              <g stroke="#FFFFFF" strokeWidth="2.5" fill="none" opacity=".9">
-                <path d="M0 60 Q 260 90 520 55 T 800 80" />
-                <path d="M180 0 L 230 220" />
-                <path d="M460 0 L 430 220" />
-                <path d="M650 0 L 690 220" />
-              </g>
-              {sheltersRes.data.slice(0, 6).map((s, idx) => {
-                const cx = 140 + ((idx * 115) % 580);
-                const cy = 60 + ((idx * 45) % 110);
-                return (
-                  <g key={s.id}>
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r="8"
-                      fill="#2FD6A3"
-                      stroke="#FFFFFF"
-                      strokeWidth="2.5"
-                    />
-                  </g>
-                );
-              })}
-              {queue.slice(0, 6).map((q, idx) => {
-                const cx = 200 + ((idx * 95) % 520);
-                const cy = 55 + ((idx * 35) % 120);
-                const fill = q.priority === "critical" ? "#FF5A4F" : "#FFC94A";
-                return (
-                  <g key={q.id}>
-                    <circle cx={cx} cy={cy} r="18" fill={fill} opacity=".22" />
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r="7"
-                      fill={fill}
-                      stroke="#FFFFFF"
-                      strokeWidth="2.5"
-                    />
-                  </g>
-                );
-              })}
-            </svg>
+            <AdminOverviewLiveMap
+              requests={requestsRes.data
+                .filter((r) => !["fulfilled", "closed", "cancelled", "rejected"].includes(r.status.toLowerCase()))
+                .map((r) => ({
+                  id: r.id,
+                  trackingNumber: r.trackingNumber,
+                  category: r.category,
+                  area: r.area,
+                  priority: r.priority,
+                  latitude: r.latitude,
+                  longitude: r.longitude,
+                }))}
+              shelters={sheltersRes.data.map((s) => ({
+                id: s.id,
+                name: s.name,
+                occupancy: s.occupancy,
+                capacity: s.capacity,
+                latitude: s.latitude,
+                longitude: s.longitude,
+              }))}
+            />
           </div>
         </div>
 
