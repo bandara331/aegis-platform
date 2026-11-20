@@ -1,3 +1,6 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using Aegis.Application.Factories;
 using Aegis.Application.Interfaces;
 using Aegis.Domain.Entities;
@@ -50,6 +53,19 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
         string htmlBody,
         CancellationToken cancellationToken = default)
     {
+        var brevoKey = _configuration["Brevo:ApiKey"] ?? _configuration["Email:BrevoApiKey"];
+        var fromEmail = _configuration["Smtp:From"] ?? _configuration["Smtp:FromEmail"] ?? "noreply@aegis.org";
+        if (!string.IsNullOrWhiteSpace(brevoKey))
+        {
+            return await SendViaBrevoAsync(brevoKey, fromEmail, toEmail, subject, plainTextBody, htmlBody, cancellationToken);
+        }
+
+        var resendKey = _configuration["Resend:ApiKey"] ?? _configuration["Email:ResendApiKey"];
+        if (!string.IsNullOrWhiteSpace(resendKey))
+        {
+            return await SendViaResendAsync(resendKey, fromEmail, toEmail, subject, plainTextBody, htmlBody, cancellationToken);
+        }
+
         var host = _configuration["Smtp:Host"];
         if (string.IsNullOrWhiteSpace(host))
         {
@@ -62,7 +78,6 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
             var port = int.TryParse(_configuration["Smtp:Port"], out var p) ? p : 587;
             var username = _configuration["Smtp:User"] ?? _configuration["Smtp:Username"];
             var password = _configuration["Smtp:Password"];
-            var fromEmail = _configuration["Smtp:From"] ?? _configuration["Smtp:FromEmail"] ?? "noreply@aegis.org";
 
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress("AEGIS Humanitarian Platform", fromEmail));
@@ -95,6 +110,74 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
         {
             _logger.LogWarning("SMTP dispatch failed for subject '{Subject}': {ErrorType}", subject, ex.GetType().Name);
             await UpdateEmailHealthAsync("Down", $"SMTP delivery failure ({ex.GetType().Name}).", cancellationToken);
+            return false;
+        }
+    }
+
+    private async Task<bool> SendViaBrevoAsync(
+        string apiKey, string fromEmail, string toEmail, string subject, string textBody, string htmlBody, CancellationToken ct)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var body = new
+            {
+                sender = new { name = "AEGIS Humanitarian Platform", email = fromEmail },
+                to = new[] { new { email = toEmail } },
+                subject,
+                htmlContent = string.IsNullOrWhiteSpace(htmlBody) ? $"<pre>{System.Net.WebUtility.HtmlEncode(textBody)}</pre>" : htmlBody,
+                textContent = textBody
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email");
+            req.Headers.Add("api-key", apiKey);
+            req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var res = await http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                await UpdateEmailHealthAsync("Healthy", "Delivered via Brevo HTTPS API (port 443)", ct);
+                _logger.LogInformation("Email dispatched via Brevo HTTPS for subject '{Subject}'", subject);
+                return true;
+            }
+            await UpdateEmailHealthAsync("Down", $"Brevo HTTPS error (HTTP {(int)res.StatusCode}).", ct);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            await UpdateEmailHealthAsync("Down", $"Brevo HTTPS failure ({ex.GetType().Name}).", ct);
+            return false;
+        }
+    }
+
+    private async Task<bool> SendViaResendAsync(
+        string apiKey, string fromEmail, string toEmail, string subject, string textBody, string htmlBody, CancellationToken ct)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var body = new
+            {
+                from = $"AEGIS Humanitarian Platform <{fromEmail}>",
+                to = new[] { toEmail },
+                subject,
+                html = htmlBody,
+                text = textBody
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var res = await http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                await UpdateEmailHealthAsync("Healthy", "Delivered via Resend HTTPS API (port 443)", ct);
+                _logger.LogInformation("Email dispatched via Resend HTTPS for subject '{Subject}'", subject);
+                return true;
+            }
+            await UpdateEmailHealthAsync("Down", $"Resend HTTPS error (HTTP {(int)res.StatusCode}).", ct);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            await UpdateEmailHealthAsync("Down", $"Resend HTTPS failure ({ex.GetType().Name}).", ct);
             return false;
         }
     }
