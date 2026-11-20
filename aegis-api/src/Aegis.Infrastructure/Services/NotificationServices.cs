@@ -53,8 +53,8 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
         string htmlBody,
         CancellationToken cancellationToken = default)
     {
-        var brevoKey = _configuration["Brevo:ApiKey"] ?? _configuration["Email:BrevoApiKey"];
-        var fromEmail = _configuration["Smtp:From"] ?? _configuration["Smtp:FromEmail"] ?? "noreply@aegis.org";
+        var brevoKey = (_configuration["Brevo:ApiKey"] ?? _configuration["Email:BrevoApiKey"])?.Trim().Trim('"');
+        var fromEmail = (_configuration["Smtp:From"] ?? _configuration["Smtp:FromEmail"] ?? "noreply@aegis.org").Trim().Trim('"');
         if (!string.IsNullOrWhiteSpace(brevoKey))
         {
             return await SendViaBrevoAsync(brevoKey, fromEmail, toEmail, subject, plainTextBody, htmlBody, cancellationToken);
@@ -138,7 +138,9 @@ public class SmtpEmailSender : IEmailSender, INotificationProvider
                 _logger.LogInformation("Email dispatched via Brevo HTTPS for subject '{Subject}'", subject);
                 return true;
             }
-            await UpdateEmailHealthAsync("Down", $"Brevo HTTPS error (HTTP {(int)res.StatusCode}).", ct);
+            var errBody = await res.Content.ReadAsStringAsync(ct);
+            var shortErr = errBody.Length > 140 ? errBody[..140] : errBody;
+            await UpdateEmailHealthAsync("Down", $"Brevo HTTPS error (HTTP {(int)res.StatusCode}): {shortErr}", ct);
             return false;
         }
         catch (Exception ex)
