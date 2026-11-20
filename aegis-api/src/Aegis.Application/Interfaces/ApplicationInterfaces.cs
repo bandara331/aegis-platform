@@ -35,11 +35,6 @@ public interface IEmailSender
     Task<bool> SendEmailAsync(string toEmail, string subject, string plainTextBody, string htmlBody, CancellationToken cancellationToken = default);
 }
 
-public interface ISmsSender
-{
-    Task<bool> SendSmsAsync(string toPhoneNumber, string message, CancellationToken cancellationToken = default);
-}
-
 public interface IAuthService
 {
     Task<Result<RegisterCitizenResponseDto>> RegisterCitizenAsync(RegisterCitizenRequestDto dto, CancellationToken cancellationToken = default);

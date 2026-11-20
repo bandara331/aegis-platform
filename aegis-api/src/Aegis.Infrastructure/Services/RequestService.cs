@@ -8,7 +8,6 @@ using Aegis.Domain.Enums;
 using Aegis.Domain.Interfaces;
 using Aegis.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Aegis.Infrastructure.Services;
@@ -23,7 +22,6 @@ public class RequestService : IRequestService
     private readonly IAiGovernanceService? _governanceService;
     private readonly IDistressDetectionService? _distressService;
     private readonly IRealtimeSignalPublisher? _signalPublisher;
-    private readonly IConfiguration? _configuration;
 
     public RequestService(
         AegisDbContext context,
@@ -33,8 +31,7 @@ public class RequestService : IRequestService
         IMultilingualNluService? nluService = null,
         IAiGovernanceService? governanceService = null,
         IDistressDetectionService? distressService = null,
-        IRealtimeSignalPublisher? signalPublisher = null,
-        IConfiguration? configuration = null)
+        IRealtimeSignalPublisher? signalPublisher = null)
     {
         _context = context;
         _aiProvider = aiProvider;
@@ -44,7 +41,6 @@ public class RequestService : IRequestService
         _governanceService = governanceService;
         _distressService = distressService;
         _signalPublisher = signalPublisher;
-        _configuration = configuration;
     }
 
     public async Task<CitizenContactProfileDto?> GetCitizenProfileAsync(string userId, CancellationToken cancellationToken = default)
@@ -291,7 +287,6 @@ public class RequestService : IRequestService
         {
             _context.NotificationOutboxes.Add(outbox);
         }
-        await TryQueueSmsAsync(request, outbox.Subject, NotificationFactory.DecodeDualPayload(outbox.Payload).PlainText, outbox.IdempotencyKey, cancellationToken);
 
         _context.AssistanceRequests.Add(request);
         await _context.SaveChangesAsync(cancellationToken);
@@ -554,7 +549,6 @@ public class RequestService : IRequestService
         var recipient = await ResolveCitizenEmailAsync(request, cancellationToken);
         var outbox = NotificationFactory.CreateStatusChangedNotification(request, "Cancelled", request.CancellationReason, recipient);
         _context.NotificationOutboxes.Add(outbox);
-        await TryQueueSmsAsync(request, outbox.Subject, NotificationFactory.DecodeDualPayload(outbox.Payload).PlainText, outbox.IdempotencyKey, cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -691,7 +685,6 @@ public class RequestService : IRequestService
         };
 
         _context.NotificationOutboxes.Add(outbox);
-        await TryQueueSmsAsync(request, outbox.Subject, NotificationFactory.DecodeDualPayload(outbox.Payload).PlainText, outbox.IdempotencyKey, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         await _auditService.AppendAsync(
@@ -780,37 +773,6 @@ public class RequestService : IRequestService
             }
         }
         return request.CitizenId ?? "citizen@aegis.local";
-    }
-
-    private async Task TryQueueSmsAsync(AssistanceRequest request, string subject, string plainMessage, string emailIdempotencyKey, CancellationToken ct)
-    {
-        var twilioSid = (_configuration?["Twilio:AccountSid"] ?? _configuration?["Sms:TwilioAccountSid"])?.Trim().Trim('"');
-        if (string.IsNullOrWhiteSpace(twilioSid)) return;
-
-        var rawPhone = request.ContactMobile;
-        if (string.IsNullOrWhiteSpace(rawPhone) && !string.IsNullOrWhiteSpace(request.CitizenId))
-        {
-            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == request.CitizenId, ct);
-            rawPhone = user?.PhoneNumber ?? string.Empty;
-        }
-
-        var normalized = TwilioSmsSender.NormalizePhoneNumber(rawPhone);
-        if (string.IsNullOrWhiteSpace(normalized)) return;
-
-        var smsKey = $"sms:{emailIdempotencyKey}";
-        if (await _context.NotificationOutboxes.AnyAsync(n => n.IdempotencyKey == smsKey, ct)) return;
-
-        _context.NotificationOutboxes.Add(new NotificationOutbox
-        {
-            IdempotencyKey = smsKey,
-            Recipient = normalized,
-            Channel = NotificationChannel.Sms,
-            Subject = subject,
-            Payload = plainMessage,
-            Status = NotificationStatus.Pending,
-            Attempts = 0,
-            NextAttemptAt = DateTime.UtcNow
-        });
     }
 
     private static bool IsCancellable(RequestStatus status)
