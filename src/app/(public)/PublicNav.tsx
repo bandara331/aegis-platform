@@ -42,6 +42,7 @@ export function PublicNav({ isCitizen, isStaff }: Props) {
       <div className={`pub-nav-links ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)}>
         <Link className="l" href="/">Home</Link>
         <Link className="l" href="/alerts">Alerts</Link>
+        <Link className="l" href="/donations">Donations</Link>
 
         {isCitizen ? (
           <>
