@@ -880,6 +880,13 @@ public class AlertsController : ControllerBase
 
     [HttpPost("automation/evaluate")]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<IActionResult> EvaluateNow([FromServices] IWeatherAlertService svc, CancellationToken ct) =>
-        Ok(new { created = await svc.EvaluateAfterRiskRefreshAsync(ct) });
+    public async Task<IActionResult> EvaluateNow(
+        [FromServices] IPredictionService predictor,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        await predictor.RefreshDistrictRiskAsync(ct);
+        var created = await svc.EvaluateAfterRiskRefreshAsync(ct);
+        return Ok(new { created });
+    }
 }

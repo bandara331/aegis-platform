@@ -232,6 +232,17 @@ export default function AdminAlertsPage() {
     }
   }
 
+  async function handleEvaluateNow() {
+    setMsg(null);
+    const res = await fetch("/api/ops/alerts/automation/evaluate", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) setMsg({ text: data.error || "Live weather evaluation failed.", error: true });
+    else {
+      setMsg({ text: `Live Open-Meteo check complete: ${data.created ?? 0} new alert(s) detected.` });
+      await loadAlerts();
+    }
+  }
+
   async function handleDryRun() {
     setMsg(null);
     setTestResult(null);
@@ -440,6 +451,9 @@ export default function AdminAlertsPage() {
                     {m}
                   </button>
                 ))}
+                <button type="button" className="btn btn-sm btn-ghost" onClick={handleEvaluateNow}>
+                  Run Live Weather Check Now
+                </button>
               </div>
             </Card>
 

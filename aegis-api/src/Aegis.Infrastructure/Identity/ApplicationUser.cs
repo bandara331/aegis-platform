@@ -14,6 +14,9 @@ public class ApplicationUser : IdentityUser
     public DateTime? ConsentGivenAtUtc { get; set; }
     public bool AlertOptIn { get; set; } = false;
     public string? District { get; set; }
+    public double? LastLatitude { get; set; }
+    public double? LastLongitude { get; set; }
+    public DateTime? LocationUpdatedAtUtc { get; set; }
     public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -15,6 +15,9 @@ interface AccountProfile {
   preferredLanguage: string;
   alertOptIn?: boolean;
   district?: string;
+  lastLatitude?: number | null;
+  lastLongitude?: number | null;
+  locationUpdatedAtUtc?: string | null;
   emailConfirmed: boolean;
   createdAt: string;
 }
@@ -43,6 +46,8 @@ export default function CitizenProfilePage() {
   const [locale, setLocale] = useState<SupportedLocale>("en");
   const [district, setDistrict] = useState("");
   const [alertOptIn, setAlertOptIn] = useState(false);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +69,9 @@ export default function CitizenProfilePage() {
         setPhoneNumber(data.phoneNumber || "");
         setDistrict(data.district || "");
         setAlertOptIn(Boolean(data.alertOptIn));
+        if (typeof data.lastLatitude === "number" && typeof data.lastLongitude === "number") {
+          setGpsCoords({ lat: data.lastLatitude, lon: data.lastLongitude });
+        }
         if (data.preferredLanguage === "si" || data.preferredLanguage === "ta" || data.preferredLanguage === "en") {
           setLocale(data.preferredLanguage);
         }
@@ -95,6 +103,8 @@ export default function CitizenProfilePage() {
           preferredLanguage: locale,
           alertOptIn,
           district,
+          latitude: gpsCoords?.lat ?? null,
+          longitude: gpsCoords?.lon ?? null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -110,6 +120,55 @@ export default function CitizenProfilePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleDetectGps() {
+    if (!navigator.geolocation) {
+      setMsg({ text: "GPS geolocation is not supported on this browser.", error: true });
+      return;
+    }
+    setLocating(true);
+    setMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(5));
+        const lon = Number(pos.coords.longitude.toFixed(5));
+        setGpsCoords({ lat, lon });
+        setAlertOptIn(true);
+        try {
+          const res = await fetch("/api/account/me", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fullName: fullName.trim() || profile?.fullName || "Citizen",
+              phoneNumber: phoneNumber.trim(),
+              preferredLanguage: locale,
+              alertOptIn: true,
+              district: district || "",
+              latitude: lat,
+              longitude: lon,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            setProfile((p) => (p ? { ...p, ...data } : data));
+            if (data.district) setDistrict(data.district);
+            setMsg({ text: `GPS saved (${lat}, ${lon}) · District: ${data.district || "detected"}. Live weather alerts active.` });
+          } else {
+            setMsg({ text: data.error || "Could not save GPS location.", error: true });
+          }
+        } catch {
+          setMsg({ text: "Network error while saving GPS location.", error: true });
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        setMsg({ text: "Location permission denied. Please select your district manually.", error: true });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 
   async function handleSignOut() {
@@ -219,17 +278,33 @@ export default function CitizenProfilePage() {
 
               <div>
                 <label className="bento-label" htmlFor="prof-district">District (for weather advisories)</label>
-                <select
-                  id="prof-district"
-                  className="bento-select"
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                >
-                  <option value="">None selected</option>
-                  {DISTRICTS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    id="prof-district"
+                    className="bento-select"
+                    style={{ flex: 1, minWidth: 180 }}
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                  >
+                    <option value="">None selected</option>
+                    {DISTRICTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={locating}
+                    onClick={handleDetectGps}
+                  >
+                    {locating ? "Locating…" : "Use my GPS"}
+                  </button>
+                </div>
+                {gpsCoords && (
+                  <div className="mono muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+                    Tracked GPS: {gpsCoords.lat}, {gpsCoords.lon}
+                  </div>
+                )}
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, cursor: "pointer" }}>
                 <input

@@ -811,7 +811,7 @@ public class WeatherAlertEvaluationWorker : BackgroundService
             {
                 _logger.LogWarning(ex, "WeatherAlertEvaluationWorker cycle failed.");
             }
-            await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
         }
     }
 }

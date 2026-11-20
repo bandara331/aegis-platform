@@ -2582,6 +2582,18 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_enabled");
 
+                    b.Property<double?>("LastLatitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("last_latitude");
+
+                    b.Property<double?>("LastLongitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("last_longitude");
+
+                    b.Property<DateTime?>("LocationUpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("location_updated_at_utc");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("lockout_enabled");

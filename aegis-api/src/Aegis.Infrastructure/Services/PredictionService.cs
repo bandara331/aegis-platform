@@ -365,6 +365,24 @@ public class PredictionService : IPredictionService
         return new DistrictRiskResponseDto("advisory, not official", lastUpdated, dtos.Any(d => d.IsStale), dtos);
     }
 
+    public static string FindNearestDistrict(double lat, double lon)
+    {
+        var best = "Colombo";
+        var bestDist = double.MaxValue;
+        foreach (var kv in DistrictCentroids)
+        {
+            var dLat = kv.Value.Lat - lat;
+            var dLon = kv.Value.Lon - lon;
+            var dist = (dLat * dLat) + (dLon * dLon);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = kv.Key;
+            }
+        }
+        return best;
+    }
+
     public async Task<DistrictRiskResponseDto> RefreshDistrictRiskAsync(CancellationToken cancellationToken = default)
     {
         var opts = LoadRiskOptions();
@@ -380,9 +398,15 @@ public class PredictionService : IPredictionService
             .Select(a => a.District)
             .Distinct()
             .ToListAsync(cancellationToken);
+        var optedInDistricts = await _context.Users.AsNoTracking()
+            .Where(u => u.AlertOptIn && u.EmailConfirmed && u.IsEnabled && u.District != null)
+            .Select(u => u.District!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
         var activeDistricts = reqDistricts
             .Concat(alertDistricts)
+            .Concat(optedInDistricts)
             .Where(d => !string.IsNullOrWhiteSpace(d))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(d => DistrictCentroids.ContainsKey(d))

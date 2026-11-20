@@ -557,7 +557,9 @@ public record UpdateAccountProfileDto(
     string PhoneNumber,
     string PreferredLanguage,
     bool? AlertOptIn = null,
-    string? District = null);
+    string? District = null,
+    double? Latitude = null,
+    double? Longitude = null);
 
 [ApiController]
 [Route("api/v1/account")]
@@ -593,6 +595,9 @@ public class AccountController : ControllerBase
             preferredLanguage = user.PreferredLanguage ?? "en",
             alertOptIn = user.AlertOptIn,
             district = user.District ?? string.Empty,
+            lastLatitude = user.LastLatitude,
+            lastLongitude = user.LastLongitude,
+            locationUpdatedAtUtc = user.LocationUpdatedAtUtc,
             emailConfirmed = user.EmailConfirmed,
             createdAt = user.CreatedAt,
             roles
@@ -600,7 +605,11 @@ public class AccountController : ControllerBase
     }
 
     [HttpPatch("me")]
-    public async Task<IActionResult> UpdateMe([FromBody] UpdateAccountProfileDto dto, CancellationToken ct)
+    public async Task<IActionResult> UpdateMe(
+        [FromBody] UpdateAccountProfileDto dto,
+        [FromServices] IPredictionService? predictionService,
+        [FromServices] IWeatherAlertService? weatherAlertService,
+        CancellationToken ct)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
@@ -617,13 +626,36 @@ public class AccountController : ControllerBase
         user.PhoneNumber = dto.PhoneNumber?.Trim() ?? string.Empty;
         user.PreferredLanguage = string.IsNullOrWhiteSpace(dto.PreferredLanguage) ? "en" : dto.PreferredLanguage.Trim();
         if (dto.AlertOptIn.HasValue) user.AlertOptIn = dto.AlertOptIn.Value;
+        if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+        {
+            user.LastLatitude = dto.Latitude.Value;
+            user.LastLongitude = dto.Longitude.Value;
+            user.LocationUpdatedAtUtc = DateTime.UtcNow;
+            if (string.IsNullOrWhiteSpace(dto.District) && string.IsNullOrWhiteSpace(user.District))
+            {
+                user.District = Aegis.Infrastructure.Services.PredictionService.FindNearestDistrict(dto.Latitude.Value, dto.Longitude.Value);
+            }
+        }
         if (dto.District != null) user.District = string.IsNullOrWhiteSpace(dto.District) ? null : dto.District.Trim();
 
         await _context.SaveChangesAsync(ct);
 
+        if (user.AlertOptIn && !string.IsNullOrWhiteSpace(user.District) && predictionService != null && weatherAlertService != null)
+        {
+            try
+            {
+                await predictionService.RefreshDistrictRiskAsync(ct);
+                await weatherAlertService.EvaluateAfterRiskRefreshAsync(ct);
+            }
+            catch
+            {
+                // Keep profile update successful even if live weather fetch fails
+            }
+        }
+
         var role = User.FindFirstValue(ClaimTypes.Role) ?? "Citizen";
         await _audit.AppendAsync("ApplicationUser", user.Id, "UpdateProfile", user.Id, role,
-            new { user.FullName, user.PreferredLanguage, user.AlertOptIn, user.District }, ct);
+            new { user.FullName, user.PreferredLanguage, user.AlertOptIn, user.District, hasGps = user.LastLatitude.HasValue }, ct);
 
         return Ok(new
         {
@@ -635,6 +667,9 @@ public class AccountController : ControllerBase
             preferredLanguage = user.PreferredLanguage,
             alertOptIn = user.AlertOptIn,
             district = user.District ?? string.Empty,
+            lastLatitude = user.LastLatitude,
+            lastLongitude = user.LastLongitude,
+            locationUpdatedAtUtc = user.LocationUpdatedAtUtc,
             emailConfirmed = user.EmailConfirmed,
             createdAt = user.CreatedAt
         });
