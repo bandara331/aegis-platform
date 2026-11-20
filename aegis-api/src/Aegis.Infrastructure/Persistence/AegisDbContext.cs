@@ -50,6 +50,8 @@ public class AegisDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DistrictRiskSnapshot> DistrictRiskSnapshots => Set<DistrictRiskSnapshot>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<DispatchPlan> DispatchPlans => Set<DispatchPlan>();
+    public DbSet<WeatherAlertRule> WeatherAlertRules => Set<WeatherAlertRule>();
+    public DbSet<AutomatedAlert> AutomatedAlerts => Set<AutomatedAlert>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -152,6 +154,11 @@ public class AegisDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<StaffInvitation>(b =>
         {
             b.HasIndex(s => s.TokenHash).IsUnique();
+        });
+
+        builder.Entity<AutomatedAlert>(b =>
+        {
+            b.HasIndex(a => a.DedupeKey).IsUnique();
         });
     }
 

@@ -75,6 +75,8 @@ public class AuthService : IAuthService
             MaskedNic = maskedNic,
             PersonalDataConsent = dto.ConsentGiven,
             ConsentGivenAtUtc = DateTime.UtcNow,
+            AlertOptIn = dto.AlertOptIn,
+            District = string.IsNullOrWhiteSpace(dto.District) ? null : dto.District.Trim(),
             EmailConfirmed = false, // Must verify 6-digit email OTP before first login
             IsEnabled = true
         };

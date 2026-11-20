@@ -11,7 +11,9 @@ public record RegisterCitizenRequestDto(
     string Email,
     string Password,
     string Language,
-    bool ConsentGiven = true
+    bool ConsentGiven = true,
+    bool AlertOptIn = false,
+    string? District = null
 );
 
 public record RegisterCitizenResponseDto(

@@ -12,6 +12,8 @@ public class ApplicationUser : IdentityUser
     public string? MaskedNic { get; set; }     // Masked display string, e.g. *******23V
     public bool PersonalDataConsent { get; set; }
     public DateTime? ConsentGivenAtUtc { get; set; }
+    public bool AlertOptIn { get; set; } = false;
+    public string? District { get; set; }
     public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

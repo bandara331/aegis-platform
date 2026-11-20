@@ -15,6 +15,14 @@ const LANGS = [
   { code: "ta", label: "தமிழ்" },
 ];
 
+const DISTRICTS = [
+  "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
+  "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
+  "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
+  "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
+  "Monaragala", "Ratnapura", "Kegalle",
+];
+
 export default function CitizenRegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
@@ -23,6 +31,8 @@ export default function CitizenRegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [language, setLanguage] = useState("en");
+  const [district, setDistrict] = useState("");
+  const [alertOptIn, setAlertOptIn] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,6 +71,8 @@ export default function CitizenRegisterPage() {
           password,
           language,
           consentGiven,
+          alertOptIn,
+          district: district || null,
         }),
       });
 
@@ -164,6 +176,35 @@ export default function CitizenRegisterPage() {
             </button>
           ))}
         </div>
+
+        <div style={{ display: "grid", gap: 6 }}>
+          <label htmlFor="reg-district" style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>
+            District (optional, for automated weather advisories)
+          </label>
+          <select
+            id="reg-district"
+            className="bento-select"
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+          >
+            <option value="">Select district (optional)</option>
+            {DISTRICTS.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        <label className={`voy-consent ${alertOptIn ? "on" : ""}`}>
+          <input
+            type="checkbox"
+            checked={alertOptIn}
+            onChange={(e) => setAlertOptIn(e.target.checked)}
+          />
+          <span className="voy-consent-dot" aria-hidden="true">
+            {alertOptIn ? "✓" : ""}
+          </span>
+          <span>Email me automated weather advisories for my selected district (opt-in, unsubscribe anytime).</span>
+        </label>
 
         <label className={`voy-consent ${consentGiven ? "on" : ""}`}>
           <input

@@ -13,9 +13,19 @@ interface AccountProfile {
   phoneNumber: string;
   maskedNic?: string | null;
   preferredLanguage: string;
+  alertOptIn?: boolean;
+  district?: string;
   emailConfirmed: boolean;
   createdAt: string;
 }
+
+const DISTRICTS = [
+  "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
+  "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
+  "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
+  "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
+  "Monaragala", "Ratnapura", "Kegalle",
+];
 
 const MOBILE_REGEX = /^(?:\+94|0)7[0-9]{8}$/;
 
@@ -31,6 +41,8 @@ export default function CitizenProfilePage() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [locale, setLocale] = useState<SupportedLocale>("en");
+  const [district, setDistrict] = useState("");
+  const [alertOptIn, setAlertOptIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +62,8 @@ export default function CitizenProfilePage() {
         setProfile(data);
         setFullName(data.fullName || "");
         setPhoneNumber(data.phoneNumber || "");
+        setDistrict(data.district || "");
+        setAlertOptIn(Boolean(data.alertOptIn));
         if (data.preferredLanguage === "si" || data.preferredLanguage === "ta" || data.preferredLanguage === "en") {
           setLocale(data.preferredLanguage);
         }
@@ -79,6 +93,8 @@ export default function CitizenProfilePage() {
           fullName: fullName.trim(),
           phoneNumber: phoneNumber.trim(),
           preferredLanguage: locale,
+          alertOptIn,
+          district,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -200,6 +216,29 @@ export default function CitizenProfilePage() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="bento-label" htmlFor="prof-district">District (for weather advisories)</label>
+                <select
+                  id="prof-district"
+                  className="bento-select"
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                >
+                  <option value="">None selected</option>
+                  {DISTRICTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={alertOptIn}
+                  onChange={(e) => setAlertOptIn(e.target.checked)}
+                />
+                <span>Receive automated weather advisory emails for my district</span>
+              </label>
 
               {msg && <Toast tone={msg.error ? "critical" : "success"}>{msg.text}</Toast>}
 

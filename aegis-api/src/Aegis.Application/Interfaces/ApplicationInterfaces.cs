@@ -35,6 +35,20 @@ public interface IEmailSender
     Task<bool> SendEmailAsync(string toEmail, string subject, string plainTextBody, string htmlBody, CancellationToken cancellationToken = default);
 }
 
+public interface IWeatherAlertService
+{
+    Task<int> EvaluateAfterRiskRefreshAsync(CancellationToken ct = default);
+    Task<WeatherAlertAdminViewDto> GetAdminViewAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<AutomatedAlertDto>> GetPublicActiveAlertsAsync(CancellationToken ct = default);
+    Task<Result<WeatherAlertRuleDto>> UpdateRuleAsync(UpdateWeatherAlertRuleDto dto, string actorId, string actorRole, CancellationToken ct = default);
+    Task<Result<AutomatedAlertDto>> ApproveAndSendAsync(Guid alertId, string actorId, string actorRole, string? reason, CancellationToken ct = default);
+    Task<Result<AutomatedAlertDto>> RetractAsync(Guid alertId, string actorId, string actorRole, string reason, CancellationToken ct = default);
+    Task<Result<AutomatedAlertDto>> MarkFalseAlarmAsync(Guid alertId, string actorId, string actorRole, string? notes, CancellationToken ct = default);
+    Task<Result<DryRunPreviewDto>> DryRunPreviewAsync(string district, CancellationToken ct = default);
+    Task<Result<bool>> SendTestToStaffAsync(string staffUserId, string district, CancellationToken ct = default);
+    Task<Result<string>> UnsubscribeByTokenAsync(string token, CancellationToken ct = default);
+}
+
 public interface IAuthService
 {
     Task<Result<RegisterCitizenResponseDto>> RegisterCitizenAsync(RegisterCitizenRequestDto dto, CancellationToken cancellationToken = default);

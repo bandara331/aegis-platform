@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   getKpis,
   getPendingRecommendations,
@@ -73,6 +74,27 @@ export default async function AdminOverviewPage() {
 
   const firstRecommendation = recsRes.data[0] ?? null;
 
+  let weatherMode = "DraftForApproval";
+  let weatherLastEval: string | null = null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("aegis_token")?.value;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
+    if (token) {
+      const autoRes = await fetch(`${apiBase}/alerts/automation`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (autoRes.ok) {
+        const autoData = await autoRes.json();
+        weatherMode = autoData?.rule?.mode || weatherMode;
+        weatherLastEval = autoData?.rule?.lastEvaluatedAtUtc || null;
+      }
+    }
+  } catch {
+    // non-fatal
+  }
+
   return (
     <div className="ov">
       <div className="ov-main">
@@ -83,6 +105,9 @@ export default async function AdminOverviewPage() {
               Command overview
             </span>
             <h1 style={{ marginTop: "4px" }}>Operations board</h1>
+            <div className="mono muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+              Weather alerts: <b>{weatherMode}</b> · Last evaluated: {weatherLastEval ? new Date(weatherLastEval).toLocaleString() : "Not yet"}
+            </div>
           </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <Link href="/admin/alerts" className="btn btn-ghost btn-sm">

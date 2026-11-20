@@ -781,4 +781,105 @@ public class AlertsController : ControllerBase
 
         return Ok(alert);
     }
+
+    [HttpGet("automated")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAutomatedPublic([FromServices] IWeatherAlertService svc, CancellationToken ct) =>
+        Ok(await svc.GetPublicActiveAlertsAsync(ct));
+
+    [HttpGet("unsubscribe")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Unsubscribe([FromQuery] string token, [FromServices] IWeatherAlertService svc, CancellationToken ct)
+    {
+        var res = await svc.UnsubscribeByTokenAsync(token, ct);
+        return res.IsSuccess ? Ok(new { message = res.Value }) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpGet("automation")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> GetAutomationView([FromServices] IWeatherAlertService svc, CancellationToken ct) =>
+        Ok(await svc.GetAdminViewAsync(ct));
+
+    [HttpPut("automation/rule")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UpdateAutomationRule(
+        [FromBody] UpdateWeatherAlertRuleDto dto,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "admin";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? AegisRoles.SystemAdmin;
+        var res = await svc.UpdateRuleAsync(dto, actorId, actorRole, ct);
+        return res.IsSuccess ? Ok(res.Value) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/{id:guid}/approve")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> ApproveAutomated(
+        Guid id,
+        [FromBody] AlertActionReasonDto? dto,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator";
+        var res = await svc.ApproveAndSendAsync(id, actorId, actorRole, dto?.Reason, ct);
+        return res.IsSuccess ? Ok(res.Value) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/{id:guid}/retract")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> RetractAutomated(
+        Guid id,
+        [FromBody] AlertActionReasonDto dto,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator";
+        var res = await svc.RetractAsync(id, actorId, actorRole, dto.Reason, ct);
+        return res.IsSuccess ? Ok(res.Value) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/{id:guid}/false-alarm")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> MarkFalseAlarm(
+        Guid id,
+        [FromBody] MarkFalseAlarmDto? dto,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "staff";
+        var actorRole = User.FindFirstValue(ClaimTypes.Role) ?? "EmergencyCoordinator";
+        var res = await svc.MarkFalseAlarmAsync(id, actorId, actorRole, dto?.Notes, ct);
+        return res.IsSuccess ? Ok(res.Value) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/dry-run")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> DryRun(
+        [FromQuery] string district,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var res = await svc.DryRunPreviewAsync(district, ct);
+        return res.IsSuccess ? Ok(res.Value) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/test-me")]
+    [Authorize(Policy = "StaffOnly")]
+    public async Task<IActionResult> SendTestToMe(
+        [FromQuery] string district,
+        [FromServices] IWeatherAlertService svc,
+        CancellationToken ct)
+    {
+        var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        var res = await svc.SendTestToStaffAsync(actorId, district, ct);
+        return res.IsSuccess ? Ok(new { sent = true }) : BadRequest(new { error = res.Error });
+    }
+
+    [HttpPost("automation/evaluate")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> EvaluateNow([FromServices] IWeatherAlertService svc, CancellationToken ct) =>
+        Ok(new { created = await svc.EvaluateAfterRiskRefreshAsync(ct) });
 }

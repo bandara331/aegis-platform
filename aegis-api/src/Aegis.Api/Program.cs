@@ -98,7 +98,9 @@ builder.Services.AddHttpClient<IRoutingService, OsrmRoutingService>()
 // Email & Outbox integration (SmtpEmailSender via MailKit; marks ServiceHealth email = Down when SMTP unconfigured/failing)
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<INotificationProvider, SmtpEmailSender>();
+builder.Services.AddScoped<IWeatherAlertService, WeatherAlertService>();
 builder.Services.AddHostedService<NotificationOutboxWorker>();
+builder.Services.AddHostedService<WeatherAlertEvaluationWorker>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateRequestDtoValidator>();
 

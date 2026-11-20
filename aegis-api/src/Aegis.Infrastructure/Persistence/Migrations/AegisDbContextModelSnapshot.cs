@@ -456,6 +456,161 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_log_entries", "aegis");
                 });
 
+            modelBuilder.Entity("Aegis.Domain.Entities.AutomatedAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AlertKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("alert_kind");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at_utc");
+
+                    b.Property<string>("ApprovedById")
+                        .HasColumnType("text")
+                        .HasColumnName("approved_by_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DataSource")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("data_source");
+
+                    b.Property<DateTime>("DataTimestampUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_timestamp_utc");
+
+                    b.Property<string>("DedupeKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("dedupe_key");
+
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("district");
+
+                    b.Property<DateTime?>("FalseAlarmMarkedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("false_alarm_marked_at_utc");
+
+                    b.Property<string>("FalseAlarmMarkedById")
+                        .HasColumnType("text")
+                        .HasColumnName("false_alarm_marked_by_id");
+
+                    b.Property<string>("FalseAlarmNotes")
+                        .HasColumnType("text")
+                        .HasColumnName("false_alarm_notes");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsFalseAlarm")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_false_alarm");
+
+                    b.Property<string>("MessageEn")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_en");
+
+                    b.Property<string>("MessageSi")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_si");
+
+                    b.Property<string>("MessageTa")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_ta");
+
+                    b.Property<string>("ModelUsed")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("model_used");
+
+                    b.Property<string>("PreviousLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("previous_level");
+
+                    b.Property<string>("PromptVersion")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("prompt_version");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("recipient_count");
+
+                    b.Property<DateTime?>("RetractedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retracted_at_utc");
+
+                    b.Property<string>("RetractedById")
+                        .HasColumnType("text")
+                        .HasColumnName("retracted_by_id");
+
+                    b.Property<string>("RetractionReason")
+                        .HasColumnType("text")
+                        .HasColumnName("retraction_reason");
+
+                    b.Property<Guid?>("RuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rule_id");
+
+                    b.Property<string>("RuleSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rule_snapshot_json");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TriggeredLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("triggered_level");
+
+                    b.Property<string>("TriggeringValuesJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("triggering_values_json");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_automated_alerts");
+
+                    b.HasIndex("DedupeKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automated_alerts_dedupe_key");
+
+                    b.ToTable("automated_alerts", "aegis");
+                });
+
             modelBuilder.Entity("Aegis.Domain.Entities.Campaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2222,6 +2377,106 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.ToTable("volunteer_assignments", "aegis");
                 });
 
+            modelBuilder.Entity("Aegis.Domain.Entities.WeatherAlertRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("CooldownHours")
+                        .HasColumnType("integer")
+                        .HasColumnName("cooldown_hours");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DailyAlertCapPerDistrict")
+                        .HasColumnType("integer")
+                        .HasColumnName("daily_alert_cap_per_district");
+
+                    b.Property<double>("HysteresisMargin")
+                        .HasColumnType("double precision")
+                        .HasColumnName("hysteresis_margin");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("LastChangeReason")
+                        .HasColumnType("text")
+                        .HasColumnName("last_change_reason");
+
+                    b.Property<DateTime?>("LastEvaluatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_evaluated_at_utc");
+
+                    b.Property<string>("LastEvaluationStatus")
+                        .HasColumnType("text")
+                        .HasColumnName("last_evaluation_status");
+
+                    b.Property<int>("MaxDataAgeMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_data_age_minutes");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("mode");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<double>("Rainfall24hHighMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall24h_high_mm");
+
+                    b.Property<double>("Rainfall24hSevereMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall24h_severe_mm");
+
+                    b.Property<double>("Rainfall72hHighMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall72h_high_mm");
+
+                    b.Property<double>("Rainfall72hSevereMm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rainfall72h_severe_mm");
+
+                    b.Property<double>("RiverDischargeHighM3s")
+                        .HasColumnType("double precision")
+                        .HasColumnName("river_discharge_high_m3s");
+
+                    b.Property<double>("RiverDischargeSevereM3s")
+                        .HasColumnType("double precision")
+                        .HasColumnName("river_discharge_severe_m3s");
+
+                    b.Property<bool>("SendRiskReducedNotice")
+                        .HasColumnType("boolean")
+                        .HasColumnName("send_risk_reduced_notice");
+
+                    b.Property<string>("TriggerLevels")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("trigger_levels");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedById")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weather_alert_rules");
+
+                    b.ToTable("weather_alert_rules", "aegis");
+                });
+
             modelBuilder.Entity("Aegis.Domain.Entities.WeatherSnapshot", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2288,6 +2543,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("access_failed_count");
 
+                    b.Property<bool>("AlertOptIn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("alert_opt_in");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text")
@@ -2300,6 +2559,10 @@ namespace Aegis.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("District")
+                        .HasColumnType("text")
+                        .HasColumnName("district");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)

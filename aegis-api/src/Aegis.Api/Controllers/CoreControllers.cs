@@ -552,7 +552,12 @@ public class AssistantController : ControllerBase
     }
 }
 
-public record UpdateAccountProfileDto(string FullName, string PhoneNumber, string PreferredLanguage);
+public record UpdateAccountProfileDto(
+    string FullName,
+    string PhoneNumber,
+    string PreferredLanguage,
+    bool? AlertOptIn = null,
+    string? District = null);
 
 [ApiController]
 [Route("api/v1/account")]
@@ -586,6 +591,8 @@ public class AccountController : ControllerBase
             phoneNumber = user.PhoneNumber ?? string.Empty,
             maskedNic = user.MaskedNic,
             preferredLanguage = user.PreferredLanguage ?? "en",
+            alertOptIn = user.AlertOptIn,
+            district = user.District ?? string.Empty,
             emailConfirmed = user.EmailConfirmed,
             createdAt = user.CreatedAt,
             roles
@@ -609,12 +616,14 @@ public class AccountController : ControllerBase
         user.FullName = dto.FullName.Trim();
         user.PhoneNumber = dto.PhoneNumber?.Trim() ?? string.Empty;
         user.PreferredLanguage = string.IsNullOrWhiteSpace(dto.PreferredLanguage) ? "en" : dto.PreferredLanguage.Trim();
+        if (dto.AlertOptIn.HasValue) user.AlertOptIn = dto.AlertOptIn.Value;
+        if (dto.District != null) user.District = string.IsNullOrWhiteSpace(dto.District) ? null : dto.District.Trim();
 
         await _context.SaveChangesAsync(ct);
 
         var role = User.FindFirstValue(ClaimTypes.Role) ?? "Citizen";
         await _audit.AppendAsync("ApplicationUser", user.Id, "UpdateProfile", user.Id, role,
-            new { user.FullName, user.PreferredLanguage }, ct);
+            new { user.FullName, user.PreferredLanguage, user.AlertOptIn, user.District }, ct);
 
         return Ok(new
         {
@@ -624,6 +633,8 @@ public class AccountController : ControllerBase
             phoneNumber = user.PhoneNumber ?? string.Empty,
             maskedNic = user.MaskedNic,
             preferredLanguage = user.PreferredLanguage,
+            alertOptIn = user.AlertOptIn,
+            district = user.District ?? string.Empty,
             emailConfirmed = user.EmailConfirmed,
             createdAt = user.CreatedAt
         });
